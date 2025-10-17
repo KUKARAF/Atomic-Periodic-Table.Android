@@ -457,6 +457,10 @@
     <string name="popup_secondary_button">Not today</string>
     <string name="credits_title">Credits</string>
     <string name="credits_text">Credits to contributors</string>
+    <string name="credits_giancarlo" translatable="false">Giancarlo Mérida</string>
+    <string name="credits_giancarlo_info">Translations for Spanish and Italian</string>
+    <string name="credits_electro_boy" translatable="false">ElectroBoy10</string>
+    <string name="credits_electro_boy_info">Translations for Afrikaan</string>
 
 
 </resources>
