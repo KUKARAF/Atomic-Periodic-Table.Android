@@ -16,6 +16,7 @@ import androidx.appcompat.widget.SwitchCompat
 import androidx.constraintlayout.widget.ConstraintLayout
 import com.jlindemann.science.R
 import com.jlindemann.science.activities.settings.AboutActivity
+import com.jlindemann.science.activities.settings.CreditsActivity
 import com.jlindemann.science.activities.settings.FavoritePageActivity
 import com.jlindemann.science.activities.settings.LicensesActivity
 import com.jlindemann.science.activities.settings.OrderActivity
@@ -138,6 +139,10 @@ class SettingsActivity : BaseActivity() {
         }
         findViewById<RelativeLayout>(R.id.licenses_settings).setOnClickListener {
             val intent = Intent(this, LicensesActivity::class.java)
+            startActivity(intent)
+        }
+        findViewById<RelativeLayout>(R.id.credits_settings).setOnClickListener {
+            val intent = Intent(this, CreditsActivity::class.java)
             startActivity(intent)
         }
         findViewById<RelativeLayout>(R.id.unit_settings).setOnClickListener {

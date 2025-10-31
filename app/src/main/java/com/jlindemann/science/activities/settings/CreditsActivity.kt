@@ -8,6 +8,7 @@ import android.view.ViewTreeObserver
 import android.widget.CheckBox
 import android.widget.FrameLayout
 import android.widget.ImageButton
+import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.constraintlayout.widget.ConstraintLayout
@@ -77,12 +78,12 @@ class CreditsActivity : BaseActivity() {
 
 
     private fun listeners() {
-        findViewById<FrameLayout>(R.id.c_giancarlo).setOnClickListener {
+        findViewById<LinearLayout>(R.id.c_giancarlo).setOnClickListener {
             val packageManager = packageManager
             val blogURL = "https://x.com/ungiancarlo"
             TabUtil.openCustomTab(blogURL, packageManager, this)
         }
-        findViewById<FrameLayout>(R.id.c_electro_boy).setOnClickListener {
+        findViewById<LinearLayout>(R.id.c_electro_boy).setOnClickListener {
             val packageManager = packageManager
             val blogURL = "https://github.com/ElectroBoy10"
             TabUtil.openCustomTab(blogURL, packageManager, this)

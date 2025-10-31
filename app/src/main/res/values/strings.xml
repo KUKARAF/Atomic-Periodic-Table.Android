@@ -2,7 +2,7 @@
     <string name="app_name">Atomic</string>
 
     <string name="personalization_settings">Personalization</string>
-    <string name="app_version" translatable="false">v4.2.0m-Build.161</string>
+    <string name="app_version" translatable="false">v4.2.1m-Build.163</string>
     <string name="next_sale_start" translatable="false" >2024/08/05</string>
     <string name="next_sale_end" translatable="false" >2024/09/15</string>
 
@@ -459,9 +459,9 @@
     <string name="credits_title">Credits</string>
     <string name="credits_text">Credits to contributors</string>
     <string name="credits_giancarlo" translatable="false">Giancarlo Mérida</string>
-    <string name="credits_giancarlo_info">Translations for Spanish and Italian</string>
+    <string name="credits_giancarlo_info" translatable="false">Translations for Spanish and Italian</string>
     <string name="credits_electro_boy" translatable="false">ElectroBoy10</string>
-    <string name="credits_electro_boy_info">Translations for Afrikaan</string>
+    <string name="credits_electro_boy_info" translatable="false">Translations for Afrikaan</string>
 
 
 </resources>
