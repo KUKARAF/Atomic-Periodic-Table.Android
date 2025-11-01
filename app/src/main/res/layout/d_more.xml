@@ -11,6 +11,7 @@
         android:elevation="10dp"
         android:background="?attr/backgroundColor"
         android:layout_width="match_parent"
+        android:visibility="gone"
         android:layout_height="match_parent">
 
         <LinearLayout
@@ -96,10 +97,10 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_marginTop="8dp"
-        android:visibility="gone"
         android:layout_marginBottom="8dp"
         android:elevation="2dp"
-        android:orientation="vertical">
+        android:orientation="vertical"
+        android:visibility="visible">
 
         <TextView
             android:layout_width="match_parent"
@@ -144,8 +145,8 @@
             android:layout_marginEnd="18dp"
             android:layout_marginBottom="8dp"
             android:text="speed_sound_solid_text"
-            android:textIsSelectable="true"
             android:textColor="?attr/colorOnSecondaryContainer"
+            android:textIsSelectable="true"
             android:textSize="14sp" />
 
         <TextView
@@ -157,8 +158,8 @@
             android:layout_marginEnd="18dp"
             android:layout_marginBottom="8dp"
             android:text="speed_sound_gas_text"
-            android:textIsSelectable="true"
             android:textColor="?attr/colorOnSecondaryContainer"
+            android:textIsSelectable="true"
             android:textSize="14sp" />
 
         <TextView
@@ -170,8 +171,8 @@
             android:layout_marginEnd="18dp"
             android:layout_marginBottom="8dp"
             android:text="speed_sound_liquid_text"
-            android:textIsSelectable="true"
             android:textColor="?attr/colorOnSecondaryContainer"
+            android:textIsSelectable="true"
             android:textSize="14sp" />
 
         <TextView
@@ -192,7 +193,7 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:layout_marginEnd="64dp"
+                android:layout_marginEnd="18dp"
                 android:orientation="vertical">
 
                 <TextView
@@ -201,7 +202,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="18dp"
                     android:layout_marginTop="8dp"
-                    android:layout_marginEnd="18dp"
+                    android:layout_marginEnd="8dp"
                     android:layout_marginBottom="2dp"
                     android:text="@string/element_poisson_ratio"
                     android:textColor="?attr/colorOnSecondaryContainer"
@@ -214,7 +215,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="18dp"
                     android:layout_marginTop="2dp"
-                    android:layout_marginEnd="18dp"
+                    android:layout_marginEnd="8dp"
                     android:layout_marginBottom="8dp"
                     android:text="poisson_text"
                     android:textColor="?attr/colorOnSecondaryContainer"
@@ -252,8 +253,8 @@
             android:layout_marginEnd="18dp"
             android:layout_marginBottom="8dp"
             android:text="young_modulus_text"
-            android:textIsSelectable="true"
             android:textColor="?attr/colorOnSecondaryContainer"
+            android:textIsSelectable="true"
             android:textSize="14sp" />
 
         <TextView
@@ -286,8 +287,8 @@
             android:layout_marginEnd="18dp"
             android:layout_marginBottom="8dp"
             android:text="bulk_modulus_text"
-            android:textIsSelectable="true"
             android:textColor="?attr/colorOnSecondaryContainer"
+            android:textIsSelectable="true"
             android:textSize="14sp" />
 
         <TextView
@@ -320,8 +321,8 @@
             android:layout_marginEnd="18dp"
             android:layout_marginBottom="8dp"
             android:text="shear_modulus_text"
-            android:textIsSelectable="true"
             android:textColor="?attr/colorOnSecondaryContainer"
+            android:textIsSelectable="true"
             android:textSize="14sp" />
 
     </LinearLayout>

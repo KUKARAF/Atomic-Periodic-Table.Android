@@ -105,7 +105,7 @@ class ElementInfoActivity : InfoExtension() {
             proChanges()
         }
         else {
-            findViewById<LinearLayout>(R.id.more_properties).visibility = View.GONE
+            findViewById<LinearLayout>(R.id.more_properties).visibility = View.VISIBLE //Changed as implementing new PRO dialog
             findViewById<LinearLayout>(R.id.hardness_properties).visibility = View.GONE
         }
     }

@@ -5,9 +5,15 @@
     android:id="@+id/view_main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="?attr/backgroundColor"
+    android:background="?attr/colorSurface"
     android:orientation="vertical"
     tools:context=".activities.MainActivity">
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:alpha="0.08"
+        android:background="?attr/colorPrimary"
+        android:elevation="9dp" />
 
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/pro_fab"
@@ -29,16 +35,17 @@
         android:layout_width="match_parent"
         android:layout_height="72dp"
         android:alpha="1"
-        android:background="?attr/colorSurface"
-        android:elevation="4dp"
+        android:elevation="10dp"
         android:gravity="center|center_vertical"
         android:orientation="horizontal"
         app:layout_constraintTop_toTopOf="parent">
+
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:gravity="bottom"
+            android:elevation="10dp"
             android:orientation="vertical">
 
             <FrameLayout
@@ -51,45 +58,67 @@
                     android:layout_width="match_parent"
                     android:layout_height="48dp"
                     android:layout_gravity="center_vertical"
-                    android:background="@drawable/toast"
-                    android:backgroundTint="?attr/colorSurface"
                     android:clickable="true"
-                    android:elevation="0dp"
                     android:focusable="true"
                     android:foreground="@drawable/c_ripple">
 
-                    <FrameLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:alpha="0.11"
-                        android:background="@drawable/toast"
-                        android:backgroundTint="?attr/colorPrimary" />
-
-                    <TextView
-                        android:id="@+id/textView5"
+                    <LinearLayout
                         android:layout_width="wrap_content"
-                        android:layout_height="match_parent"
-                        android:layout_gravity="center_vertical"
-                        android:layout_marginStart="16dp"
-                        android:alpha="0.9"
-                        android:drawableStart="@drawable/ic_search"
-                        android:drawablePadding="16dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="8dp"
                         android:gravity="center_vertical"
-                        android:text="@string/search"
-                        android:textColor="?attr/colorOnSecondaryContainer"
-                        android:textSize="16sp" />
+                        android:layout_marginStart="8dp"
+                        android:layout_gravity="start">
+
+                        <ImageView
+                            android:layout_width="38dp"
+                            android:layout_height="48dp"
+                            android:layout_marginEnd="4dp"
+                            android:src="@drawable/main_logo" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/app_name"
+                            android:textColor="?attr/actionMenuTextColor"
+                            android:textSize="22sp"
+                            android:textStyle="bold"
+                            android:layout_gravity="center_vertical"/>
+
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="8dp"
+                        android:layout_marginStart="8dp"
+                        android:layout_gravity="end">
+
+                        <ImageButton
+                            android:id="@+id/search_btn"
+                            style="?android:attr/borderlessButtonStyle"
+                            android:layout_width="48dp"
+                            android:layout_height="48dp"
+                            android:layout_gravity="center_vertical|end"
+                            android:alpha="0.9"
+                            android:foreground="@drawable/toast_ripple"
+                            android:src="@drawable/ic_search"
+                            app:tint="?attr/colorOnSecondaryContainer" />
 
 
-                    <ImageButton
-                        android:id="@+id/user_btn"
-                        style="?android:attr/borderlessButtonStyle"
-                        android:layout_width="48dp"
-                        android:layout_height="48dp"
-                        android:layout_gravity="center_vertical|end"
-                        android:alpha="0.9"
-                        android:foreground="@drawable/toast_ripple"
-                        android:src="@drawable/ic_account"
-                        app:tint="?attr/colorOnSecondaryContainer" />
+                        <ImageButton
+                            android:id="@+id/user_btn"
+                            style="?android:attr/borderlessButtonStyle"
+                            android:layout_width="48dp"
+                            android:layout_height="48dp"
+                            android:layout_gravity="center_vertical|end"
+                            android:alpha="0.9"
+                            android:foreground="@drawable/toast_ripple"
+                            android:src="@drawable/ic_account"
+                            app:tint="?attr/colorOnSecondaryContainer" />
+
+                    </LinearLayout>
+
 
                 </FrameLayout>
             </FrameLayout>
@@ -100,16 +129,17 @@
     <FrameLayout
         android:id="@+id/frame_layout"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:elevation="0dp">
+        android:elevation="10dp"
+        android:layout_height="match_parent">
 
         <TextView
             android:id="@+id/corner"
             android:layout_width="32dp"
             android:layout_height="32dp"
             android:layout_marginTop="72dp"
-            android:background="?attr/colorSurface"
-            android:elevation="4dp" />
+            android:background="@drawable/toast_left"
+            android:backgroundTint="?attr/colorSurface"
+            android:elevation="0dp" />
 
         <HorizontalScrollView
             android:id="@+id/topBar"
@@ -117,9 +147,9 @@
             android:layout_height="32dp"
             android:layout_marginStart="32dp"
             android:layout_marginTop="72dp"
-            android:background="?attr/colorSurface"
+            android:background="@drawable/toast_right"
+            android:backgroundTint="?attr/colorSurface"
             android:clickable="false"
-            android:elevation="4dp"
             android:fadeScrollbars="true"
             android:fadingEdge="horizontal"
             android:fadingEdgeLength="100dp"
@@ -342,7 +372,6 @@
             android:layout_marginTop="104dp"
             android:background="?attr/colorSurface"
             android:clickable="true"
-            android:elevation="4dp"
             android:fadeScrollbars="true"
             android:fadingEdge="vertical"
             android:fadingEdgeLength="36dp"
@@ -450,6 +479,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="72dp"
             android:clickable="false"
+            android:elevation="-1dp"
             android:focusable="true"
             android:scrollbars="vertical|horizontal"
             android:visibility="visible"
@@ -464,9 +494,10 @@
             app:minZoomType="zoom"
             app:oneFingerScrollEnabled="true"
             app:overPinchable="true"
-            app:overScrollHorizontal="true"
-            app:overScrollVertical="true"
+            app:overScrollHorizontal="false"
+            app:overScrollVertical="false"
             app:scrollEnabled="true"
+            android:backgroundTint="?attr/colorSurface"
             app:threeFingersScrollEnabled="true"
             app:transformation="none"
             app:transformationGravity="auto"
@@ -479,6 +510,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
+                android:background="?attr/colorSurface"
                 android:paddingBottom="320dp">
 
                 <LinearLayout
@@ -486,8 +518,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:layout_marginStart="32dp"
-                    android:orientation="vertical"
-                    android:paddingTop="32dp">
+                    android:orientation="vertical">
 
                     <include
                         layout="@layout/group_1"
@@ -501,7 +532,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:orientation="vertical"
-                    android:paddingTop="32dp">
+                    >
 
                     <include
                         layout="@layout/group_2"
@@ -514,7 +545,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:orientation="vertical"
-                    android:paddingTop="32dp">
+                    >
 
                     <include
                         layout="@layout/group_3"
@@ -527,7 +558,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:orientation="vertical"
-                    android:paddingTop="32dp">
+                    >
 
                     <include
                         layout="@layout/group_4"
@@ -540,7 +571,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:orientation="vertical"
-                    android:paddingTop="32dp">
+                    >
 
                     <include
                         layout="@layout/group_5"
@@ -553,7 +584,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:orientation="vertical"
-                    android:paddingTop="32dp">
+                    >
 
                     <include
                         layout="@layout/group_6"
@@ -566,7 +597,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:orientation="vertical"
-                    android:paddingTop="32dp">
+                    >
 
                     <include
                         layout="@layout/group_7"
@@ -579,7 +610,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:orientation="vertical"
-                    android:paddingTop="32dp">
+                    >
 
                     <include
                         layout="@layout/group_8"
@@ -592,7 +623,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:orientation="vertical"
-                    android:paddingTop="32dp">
+                    >
 
                     <include
                         layout="@layout/group_9"
@@ -606,7 +637,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:orientation="vertical"
-                    android:paddingTop="32dp">
+                    >
 
                     <include
                         layout="@layout/group_10"
@@ -619,7 +650,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:orientation="vertical"
-                    android:paddingTop="32dp">
+                    >
 
                     <include
                         layout="@layout/group_11"
@@ -632,7 +663,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:orientation="vertical"
-                    android:paddingTop="32dp">
+                    >
 
                     <include
                         layout="@layout/group_12"
@@ -645,7 +676,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:orientation="vertical"
-                    android:paddingTop="32dp">
+                    >
 
                     <include
                         layout="@layout/group_13"
@@ -658,7 +689,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:orientation="vertical"
-                    android:paddingTop="32dp">
+                    >
 
                     <include
                         layout="@layout/group_14"
@@ -671,7 +702,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:orientation="vertical"
-                    android:paddingTop="32dp">
+                    >
 
                     <include
                         layout="@layout/group_15"
@@ -684,7 +715,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:orientation="vertical"
-                    android:paddingTop="32dp">
+                    >
 
                     <include
                         layout="@layout/group_16"
@@ -697,7 +728,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:orientation="vertical"
-                    android:paddingTop="32dp">
+                    >
 
                     <include
                         layout="@layout/group_17"
@@ -710,7 +741,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:orientation="vertical"
-                    android:paddingTop="32dp">
+                    >
 
                     <include
                         layout="@layout/group_18"
@@ -722,7 +753,6 @@
 
             </LinearLayout>
         </com.otaliastudios.zoom.ZoomLayout>
-
     </FrameLayout>
 
 
@@ -739,7 +769,7 @@
         android:src="@drawable/ic_filter"
         android:tint="?attr/colorOnPrimary"
         app:borderWidth="0dp"
-        app:elevation="10dp"
+        app:elevation="14dp"
         app:layout_constraintBottom_toBottomOf="@id/nav_bar_main"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
@@ -751,7 +781,7 @@
         android:alpha="1"
         android:background="?attr/colorSurface"
         android:clickable="true"
-        android:elevation="8dp"
+        android:elevation="13dp"
         android:focusable="true"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toEndOf="parent">
@@ -806,7 +836,7 @@
         android:layout_height="match_parent"
         android:alpha="0.6"
         android:background="@color/colorLightText"
-        android:elevation="12dp"
+        android:elevation="14dp"
         android:visibility="gone" />
 
     <TextView
@@ -815,7 +845,7 @@
         android:layout_height="match_parent"
         android:alpha="0.6"
         android:background="@color/colorLightText"
-        android:elevation="12dp"
+        android:elevation="14dp"
         android:visibility="gone" />
 
     <include

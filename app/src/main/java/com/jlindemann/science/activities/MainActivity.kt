@@ -330,7 +330,7 @@ class MainActivity : TableExtension(), ElementAdapter.OnElementClickListener2 {
 
 
     private fun searchListener() {
-        findViewById<FrameLayout>(R.id.search_box).setOnClickListener {
+        findViewById<ImageButton>(R.id.search_btn).setOnClickListener {
             Utils.fadeInAnim(findViewById<FrameLayout>(R.id.search_menu_include), 300)
             findViewById<FrameLayout>(R.id.nav_bar_main).visibility = View.GONE
             Utils.fadeOutAnim(findViewById<FloatingActionButton>(R.id.more_btn), 300)
@@ -622,8 +622,8 @@ class MainActivity : TableExtension(), ElementAdapter.OnElementClickListener2 {
         findViewById<FrameLayout>(R.id.nav_content).layoutParams = navSide
 
         val barSide = findViewById<FrameLayout>(R.id.search_box).layoutParams as ViewGroup.MarginLayoutParams
-        barSide.rightMargin = right + resources.getDimensionPixelSize(R.dimen.search_margin_side)
-        barSide.leftMargin = left + resources.getDimensionPixelSize(R.dimen.search_margin_side)
+        barSide.rightMargin = right
+        barSide.leftMargin = left
         findViewById<FrameLayout>(R.id.search_box).layoutParams = barSide
 
         val leftScrollBar = findViewById<ScrollView>(R.id.leftBar).layoutParams as ViewGroup.MarginLayoutParams
@@ -651,7 +651,7 @@ class MainActivity : TableExtension(), ElementAdapter.OnElementClickListener2 {
         findViewById<ConstraintLayout>(R.id.hover_menu_include).layoutParams = params5
 
         val params6 = findViewById<ZoomLayout>(R.id.scrollView).layoutParams as ViewGroup.MarginLayoutParams
-        params6.topMargin = top + resources.getDimensionPixelSize(R.dimen.title_bar_main)
+        params6.topMargin = top + resources.getDimensionPixelSize(R.dimen.title_bar_main) + resources.getDimensionPixelSize(R.dimen.left_bar)
         findViewById<ZoomLayout>(R.id.scrollView).layoutParams = params6
 
         val params7 = findViewById<SlidingUpPanelLayout>(R.id.sliding_layout).layoutParams as ViewGroup.LayoutParams

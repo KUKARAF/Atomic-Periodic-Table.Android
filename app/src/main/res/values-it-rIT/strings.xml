@@ -374,4 +374,5 @@
     <string name="popup_secondary_button">Non oggi</string>
     <string name="credits_title">Attribuzioni</string>
     <string name="credits_text">Attribuzioni ai collaboratori</string>
+    <string name="get_pro_element_text">Ottieni la versione PRO per sbloccare informazioni aggiuntive sugli elementi</string>
 </resources>
