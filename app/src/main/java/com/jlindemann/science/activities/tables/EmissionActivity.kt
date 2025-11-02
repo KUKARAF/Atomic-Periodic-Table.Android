@@ -2,8 +2,10 @@ package com.jlindemann.science.activities.tables
 
 import android.content.Context
 import android.content.res.Configuration
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
+import android.os.Looper
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.View
@@ -15,21 +17,16 @@ import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.activity.OnBackPressedCallback
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.jlindemann.science.R
 import com.jlindemann.science.activities.BaseActivity
-import com.jlindemann.science.adapter.ElementAdapter
 import com.jlindemann.science.adapter.EmissionAdapter
-import com.jlindemann.science.adapter.EquationsAdapter
-import com.jlindemann.science.adapter.IonAdapter
 import com.jlindemann.science.animations.Anim
 import com.jlindemann.science.model.Element
 import com.jlindemann.science.model.ElementModel
-import com.jlindemann.science.model.Equation
-import com.jlindemann.science.model.Ion
-import com.jlindemann.science.model.IonModel
 import com.jlindemann.science.preferences.MostUsedPreference
 import com.jlindemann.science.preferences.ThemePreference
 import com.jlindemann.science.utils.Utils
@@ -47,6 +44,11 @@ class EmissionActivity : BaseActivity(), EmissionAdapter.OnEmissionClickListener
     private var emiList = ArrayList<Element>()
     var mAdapter = EmissionAdapter(emiList, this, this)
 
+    // Back handling fields (unified pattern)
+    private var backCallback: OnBackPressedCallback? = null
+    private var onBackInvokedCb: android.window.OnBackInvokedCallback? = null
+    private val uiHandler = Handler(Looper.getMainLooper())
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val themePreference = ThemePreference(this)
@@ -60,6 +62,26 @@ class EmissionActivity : BaseActivity(), EmissionAdapter.OnEmissionClickListener
         if (themePrefValue == 0) { setTheme(R.style.AppTheme) }
         if (themePrefValue == 1) { setTheme(R.style.AppThemeDark) }
         setContentView(R.layout.activity_emission) //REMEMBER: Never move any function calls above this
+
+        // Register lifecycle-aware OnBackPressedCallback (disabled by default).
+        backCallback = object : OnBackPressedCallback(false) {
+            override fun handleOnBackPressed() {
+                val consumed = handleBackPress()
+                if (!consumed) {
+                    // Not consumed by overlays -> fallback to default behaviour.
+                    isEnabled = false
+                    try {
+                        onBackPressedDispatcher.onBackPressed()
+                    } finally {
+                        isEnabled = false
+                    }
+                }
+            }
+        }
+        onBackPressedDispatcher.addCallback(this, backCallback!!)
+
+        // Start with platform OnBackInvoked interception disabled; enable on overlays.
+        setBackInterceptionEnabled(false)
 
         //Add value to most used:
         val mostUsedPreference = MostUsedPreference(this)
@@ -76,13 +98,16 @@ class EmissionActivity : BaseActivity(), EmissionAdapter.OnEmissionClickListener
         recyclerView()
         clickSearch()
 
+        // Update interception when panel state changes
         findViewById<SlidingUpPanelLayout>(R.id.sliding_layout_e).addPanelSlideListener(object : SlidingUpPanelLayout.PanelSlideListener {
             override fun onPanelSlide(panel: View?, slideOffset: Float) { }
             override fun onPanelStateChanged(panel: View?, previousState: SlidingUpPanelLayout.PanelState, newState: SlidingUpPanelLayout.PanelState) {
-                if (findViewById<SlidingUpPanelLayout>(R.id.sliding_layout_e).panelState === SlidingUpPanelLayout.PanelState.COLLAPSED) {
+                if (newState == SlidingUpPanelLayout.PanelState.COLLAPSED) {
                     Utils.fadeOutAnim(findViewById<TextView>(R.id.background_emi), 300)
                     Utils.fadeOutAnim(findViewById<FrameLayout>(R.id.emission_detail), 300)
                 }
+                // Keep platform callback registered while an overlay is open
+                setBackInterceptionEnabled(anyOverlayOpen())
             }
         })
 
@@ -95,6 +120,8 @@ class EmissionActivity : BaseActivity(), EmissionAdapter.OnEmissionClickListener
                 Utils.fadeOutAnim(findViewById<SlidingUpPanelLayout>(R.id.sliding_layout_e), 300)
                 Utils.fadeOutAnim(findViewById<TextView>(R.id.background_emi), 300)
             }
+            // update interception after hiding overlays
+            setBackInterceptionEnabled(anyOverlayOpen())
         }
 
         findViewById<FrameLayout>(R.id.view_emi).systemUiVisibility = View.SYSTEM_UI_FLAG_LAYOUT_STABLE or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
@@ -116,20 +143,21 @@ class EmissionActivity : BaseActivity(), EmissionAdapter.OnEmissionClickListener
             val hUrl = "https://www.jlindemann.se/atomic/emission_lines/"
             val extg = ".gif"
             val fURL = hUrl + url + extg
-            findViewById<TextView>(R.id.emi_title).text = item.element.capitalize()
+            findViewById<TextView>(R.id.emi_title).text = item.element.replaceFirstChar { it.uppercase() }
             try {
                 Picasso.get().load(fURL).into(findViewById<ImageView>(R.id.emi_img_detail))
                 Utils.fadeInAnimBack(findViewById<TextView>(R.id.background_emi), 300)
             }
             catch(e: ConnectException) {
-                //findViewById<ImageView>(R.id.sp_img).visibility = View.GONE
-                //findViewById<TextView>(R.id.sp_offline).text = "No Data"
-                //findViewById<TextView>(R.id.sp_offline).visibility = View.VISIBLE
+                // network errors ignored gracefully
             }
         }
         catch (e: IOException) { }
         Utils.fadeInAnim(findViewById<FrameLayout>(R.id.emission_detail), 300)
         findViewById<SlidingUpPanelLayout>(R.id.sliding_layout_e).panelState = SlidingUpPanelLayout.PanelState.EXPANDED
+
+        // emission detail / panel shown -> enable back interception
+        setBackInterceptionEnabled(true)
     }
 
     private fun recyclerView() {
@@ -151,7 +179,7 @@ class EmissionActivity : BaseActivity(), EmissionAdapter.OnEmissionClickListener
     private fun filter(text: String, list: ArrayList<Element>, recyclerView: RecyclerView) {
         val filteredList: ArrayList<Element> = ArrayList()
         for (item in list) { if (item.element.lowercase(Locale.ROOT).contains(text.lowercase(Locale.ROOT))) { filteredList.add(item) } }
-        val handler = android.os.Handler()
+        val handler = Handler(Looper.getMainLooper())
         handler.postDelayed({
             if (recyclerView.adapter!!.itemCount == 0) {
                 Anim.fadeIn(findViewById<LinearLayout>(R.id.empty_search_box_emi), 300)
@@ -172,10 +200,13 @@ class EmissionActivity : BaseActivity(), EmissionAdapter.OnEmissionClickListener
             findViewById<EditText>(R.id.edit_emi).requestFocus()
             val imm: InputMethodManager = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
             imm.showSoftInput(findViewById<EditText>(R.id.edit_emi), InputMethodManager.SHOW_IMPLICIT)
+
+            // Search bar shown -> enable back interception
+            setBackInterceptionEnabled(true)
         }
         findViewById<ImageButton>(R.id.close_ele_search_emi).setOnClickListener {
             Utils.fadeOutAnim(findViewById<FrameLayout>(R.id.search_bar_emi), 1)
-            val delayClose = Handler()
+            val delayClose = Handler(Looper.getMainLooper())
             delayClose.postDelayed({
                 Utils.fadeInAnim(findViewById<FrameLayout>(R.id.title_box), 150)
             }, 151)
@@ -185,19 +216,116 @@ class EmissionActivity : BaseActivity(), EmissionAdapter.OnEmissionClickListener
                 val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
                 imm.hideSoftInputFromWindow(view.windowToken, 0)
             }
+
+            // closed -> update interception state
+            setBackInterceptionEnabled(anyOverlayOpen())
         }
     }
 
     override fun onBackPressed() {
-        if (findViewById<TextView>(R.id.background_emi).visibility == View.VISIBLE) {
-            findViewById<SlidingUpPanelLayout>(R.id.sliding_layout_e).panelState = SlidingUpPanelLayout.PanelState.COLLAPSED
-            return
-        }
-        else {
+        // Centralized handling: close overlays first
+        if (!handleBackPress()) {
             super.onBackPressed()
         }
     }
 
+    // Centralized overlay detection
+    private fun anyOverlayOpen(): Boolean {
+        val panel = findViewById<SlidingUpPanelLayout>(R.id.sliding_layout_e)
+        val panelExpanded = panel.panelState == SlidingUpPanelLayout.PanelState.EXPANDED
+        val backgroundVisible = findViewById<TextView>(R.id.background_emi).visibility == View.VISIBLE
+        val detailVisible = findViewById<FrameLayout>(R.id.emission_detail).visibility == View.VISIBLE
+        val searchBarVisible = findViewById<FrameLayout>(R.id.search_bar_emi).visibility == View.VISIBLE
+        return panelExpanded || backgroundVisible || detailVisible || searchBarVisible
+    }
+
+    // Close overlays if visible; return true when consumed.
+    private fun handleBackPress(): Boolean {
+        val panel = findViewById<SlidingUpPanelLayout>(R.id.sliding_layout_e)
+        val background = findViewById<TextView>(R.id.background_emi)
+        val detail = findViewById<FrameLayout>(R.id.emission_detail)
+        val searchBar = findViewById<FrameLayout>(R.id.search_bar_emi)
+
+        // If emission detail visible, hide it and collapse panel
+        if (detail.visibility == View.VISIBLE) {
+            Utils.fadeOutAnim(detail, 300)
+            Utils.fadeOutAnim(background, 300)
+            panel.panelState = SlidingUpPanelLayout.PanelState.COLLAPSED
+            setBackInterceptionEnabled(anyOverlayOpen())
+            return true
+        }
+
+        // If sliding panel expanded, collapse it
+        if (panel.panelState == SlidingUpPanelLayout.PanelState.EXPANDED) {
+            panel.panelState = SlidingUpPanelLayout.PanelState.COLLAPSED
+            Utils.fadeOutAnim(background, 300)
+            Utils.fadeOutAnim(detail, 300)
+            setBackInterceptionEnabled(anyOverlayOpen())
+            return true
+        }
+
+        // If search bar visible, close it
+        if (searchBar.visibility == View.VISIBLE) {
+            Utils.fadeOutAnim(searchBar, 1)
+            Handler(Looper.getMainLooper()).postDelayed({
+                Utils.fadeInAnim(findViewById<FrameLayout>(R.id.title_box), 150)
+            }, 151)
+            val view = this.currentFocus
+            if (view != null) {
+                val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                imm.hideSoftInputFromWindow(view.windowToken, 0)
+            }
+            setBackInterceptionEnabled(anyOverlayOpen())
+            return true
+        }
+
+        return false
+    }
+
+    /**
+     * Centralized management of platform back interception for Android 14+.
+     * Forward platform back invocations to the OnBackPressedDispatcher so gestures and
+     * hardware back buttons use the same logic.
+     */
+    private fun setBackInterceptionEnabled(enabled: Boolean) {
+        backCallback?.isEnabled = enabled
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            if (enabled) {
+                if (onBackInvokedCb == null) {
+                    onBackInvokedCb = android.window.OnBackInvokedCallback {
+                        uiHandler.post {
+                            try {
+                                onBackPressedDispatcher.onBackPressed()
+                            } catch (e: Exception) {
+                                val consumed = handleBackPress()
+                                if (!consumed) {
+                                    finish()
+                                }
+                            }
+                        }
+                    }
+                    try {
+                        onBackInvokedDispatcher.registerOnBackInvokedCallback(
+                            android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT,
+                            onBackInvokedCb!!
+                        )
+                    } catch (_: Exception) {
+                        // ignore registration errors on some devices
+                    }
+                }
+            } else {
+                if (onBackInvokedCb != null) {
+                    try {
+                        onBackInvokedDispatcher.unregisterOnBackInvokedCallback(onBackInvokedCb!!)
+                    } catch (_: Exception) {
+                        // ignore
+                    }
+                    onBackInvokedCb = null
+                }
+            }
+        }
+    }
 
     override fun onApplySystemInsets(top: Int, bottom: Int, left: Int, right: Int) {
         findViewById<RecyclerView>(R.id.emi_view).setPadding(0, resources.getDimensionPixelSize(R.dimen.title_bar) + resources.getDimensionPixelSize(R.dimen.margin_space) + top, 0, resources.getDimensionPixelSize(R.dimen.title_bar))
@@ -215,7 +343,16 @@ class EmissionActivity : BaseActivity(), EmissionAdapter.OnEmissionClickListener
         findViewById<SlidingUpPanelLayout>(R.id.sliding_layout_e).layoutParams = params3
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        // Cleanup back interception hooks
+        backCallback?.remove()
+        backCallback = null
+        if (onBackInvokedCb != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            try {
+                onBackInvokedDispatcher.unregisterOnBackInvokedCallback(onBackInvokedCb!!)
+            } catch (_: Exception) { }
+            onBackInvokedCb = null
+        }
+    }
 }
-
-
-

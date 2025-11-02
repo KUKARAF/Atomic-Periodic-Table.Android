@@ -168,13 +168,14 @@ class LearningGamesActivity : BaseActivity() {
             .setPositiveButton("Leave") { _, _ ->
                 leaveDialogShowing = false
                 // dialog dismissed -> update interception then process leaving
-                setBackInterceptionEnabled(anyOverlayOpen())
+                setBackInterceptionEnabled(anyOverlayOpen() || !hasLeftGame)
                 leaveGameAndLoseLives()
             }
             .setNegativeButton("Stay") { dialogInterface, _ ->
                 leaveDialogShowing = false
                 dialogInterface.dismiss()
-                setBackInterceptionEnabled(anyOverlayOpen())
+                // stay in game -> keep interception enabled
+                setBackInterceptionEnabled(anyOverlayOpen() || !hasLeftGame)
             }
             .setCancelable(false)
             .create()
@@ -182,7 +183,7 @@ class LearningGamesActivity : BaseActivity() {
         dialog.setOnDismissListener {
             // Make sure state updated after dialog disappears for any reason
             leaveDialogShowing = false
-            setBackInterceptionEnabled(anyOverlayOpen())
+            setBackInterceptionEnabled(anyOverlayOpen() || !hasLeftGame)
         }
 
         dialog.show()
@@ -482,8 +483,8 @@ class LearningGamesActivity : BaseActivity() {
 
     private fun hideResultCard() {
         findViewById<FrameLayout>(R.id.result_card_overlay).visibility = View.GONE
-        // After hiding, update interception state; if nothing else open we disable so gestures go to system
-        setBackInterceptionEnabled(anyOverlayOpen())
+        // After hiding, update interception state; keep interception while game active
+        setBackInterceptionEnabled(anyOverlayOpen() || !hasLeftGame)
     }
 
     // Normalization function to canonicalize labels and answers
@@ -867,21 +868,23 @@ class LearningGamesActivity : BaseActivity() {
     }
 
     private fun setBackInterceptionEnabled(enabled: Boolean) {
+        // Keep the OnBackPressedCallback state in sync with requested enabled flag.
         backCallback?.isEnabled = enabled
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             if (enabled) {
+                // If not already registered, register a platform callback that forwards to the
+                // activity's OnBackPressedDispatcher (so both gesture and button use the same path).
                 if (onBackInvokedCb == null) {
-                    // Register a platform callback that forwards to the OnBackPressedDispatcher,
-                    // ensuring gestures and hardware back behave identically.
                     onBackInvokedCb = android.window.OnBackInvokedCallback {
+                        // Always run UI work on the main thread.
                         handler.post {
-                            // Trigger the OnBackPressedDispatcher which will call your existing
-                            // OnBackPressedCallback (that shows the leave dialog / dismisses overlays).
                             try {
+                                // Forward to the OnBackPressedDispatcher which will call the existing
+                                // OnBackPressedCallback(s) (that show dialogs / dismiss overlays).
                                 onBackPressedDispatcher.onBackPressed()
                             } catch (e: Exception) {
-                                // Fallback: directly mirror behavior if dispatcher fails for any reason
+                                // Fallback: if dispatcher fails, mirror behavior.
                                 val consumed = handleBackPress()
                                 if (!consumed) showExitConfirmationDialog()
                             }
@@ -893,6 +896,7 @@ class LearningGamesActivity : BaseActivity() {
                     )
                 }
             } else {
+                // Unregister when interception is explicitly disabled.
                 if (onBackInvokedCb != null) {
                     try {
                         onBackInvokedDispatcher.unregisterOnBackInvokedCallback(onBackInvokedCb!!)
@@ -906,10 +910,12 @@ class LearningGamesActivity : BaseActivity() {
     // Close overlays (dialog or result card) if visible; return true when consumed
     private fun handleBackPress(): Boolean {
         val resultCard = findViewById<FrameLayout>(R.id.result_card_overlay)
+
         if (leaveDialogShowing) {
             // If the leave dialog is showing, dismiss by toggling flag and let dialog listeners handle actual leaving.
             leaveDialogShowing = false
-            setBackInterceptionEnabled(anyOverlayOpen())
+            // Keep interception enabled while game is active
+            setBackInterceptionEnabled(anyOverlayOpen() || !hasLeftGame)
             return true
         }
         if (resultCard.visibility == View.VISIBLE) {

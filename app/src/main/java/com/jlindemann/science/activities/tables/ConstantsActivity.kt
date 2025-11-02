@@ -2,8 +2,10 @@ package com.jlindemann.science.activities.tables
 
 import android.content.Context
 import android.content.res.Configuration
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
+import android.os.Looper
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.View
@@ -14,37 +16,33 @@ import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.LinearLayout
-import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.appcompat.widget.AppCompatImageView
-import androidx.cardview.widget.CardView
+import androidx.activity.OnBackPressedCallback
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.jlindemann.science.R
 import com.jlindemann.science.activities.BaseActivity
 import com.jlindemann.science.adapter.ConstantsAdapter
-import com.jlindemann.science.adapter.DictionaryAdapter
-import com.jlindemann.science.adapter.PoissonAdapter
 import com.jlindemann.science.animations.Anim
 import com.jlindemann.science.model.Constants
 import com.jlindemann.science.model.ConstantsModel
-import com.jlindemann.science.model.Dictionary
-import com.jlindemann.science.model.Poisson
-import com.jlindemann.science.model.PoissonModel
 import com.jlindemann.science.preferences.ConstantsPreference
-import com.jlindemann.science.preferences.DictionaryPreferences
 import com.jlindemann.science.preferences.MostUsedPreference
-import com.jlindemann.science.preferences.PoissonPreferences
 import com.jlindemann.science.preferences.ThemePreference
 import com.jlindemann.science.utils.Utils
 import java.util.*
 import kotlin.collections.ArrayList
 
-
 class ConstantsActivity : BaseActivity(), ConstantsAdapter.OnConstantsClickListener {
     private var constantsList = ArrayList<Constants>()
     var mAdapter = ConstantsAdapter(constantsList, this, this)
+
+    // Unified back handling fields
+    private var backCallback: OnBackPressedCallback? = null
+    private var onBackInvokedCb: android.window.OnBackInvokedCallback? = null
+    private val uiHandler = Handler(Looper.getMainLooper())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -59,6 +57,26 @@ class ConstantsActivity : BaseActivity(), ConstantsAdapter.OnConstantsClickListe
         if (themePrefValue == 0) { setTheme(R.style.AppTheme) }
         if (themePrefValue == 1) { setTheme(R.style.AppThemeDark) }
         setContentView(R.layout.activity_constants) //REMEMBER: Never move any function calls above this
+
+        // Register lifecycle-aware OnBackPressedCallback (disabled by default).
+        backCallback = object : OnBackPressedCallback(false) {
+            override fun handleOnBackPressed() {
+                val consumed = handleBackPress()
+                if (!consumed) {
+                    // Not consumed by overlays -> fallback to default behavior.
+                    isEnabled = false
+                    try {
+                        onBackPressedDispatcher.onBackPressed()
+                    } finally {
+                        isEnabled = false
+                    }
+                }
+            }
+        }
+        onBackPressedDispatcher.addCallback(this, backCallback!!)
+
+        // Start with platform OnBackInvoked interception disabled; enable on overlays.
+        setBackInterceptionEnabled(false)
 
         val recyclerView = findViewById<RecyclerView>(R.id.con_view)
         recyclerView.layoutManager = LinearLayoutManager(this, RecyclerView.VERTICAL, false)
@@ -118,10 +136,9 @@ class ConstantsActivity : BaseActivity(), ConstantsAdapter.OnConstantsClickListe
         })
     }
 
-    //Overrides the clickListener from PoissonAdapter to show InfoPanel when clicking on elments
+    // Overrides the clickListener from ConstantsAdapter (no-op currently)
     override fun constantsClickListener(item: Constants, position: Int) {
     }
-
 
     private fun clickSearch() {
         findViewById<ImageButton>(R.id.search_btn_con).setOnClickListener {
@@ -131,11 +148,14 @@ class ConstantsActivity : BaseActivity(), ConstantsAdapter.OnConstantsClickListe
             findViewById<EditText>(R.id.edit_con).requestFocus()
             val imm: InputMethodManager = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
             imm.showSoftInput(findViewById<EditText>(R.id.edit_con), InputMethodManager.SHOW_IMPLICIT)
+
+            // Search bar shown -> enable back interception so gestures/back close it first
+            setBackInterceptionEnabled(true)
         }
         findViewById<ImageButton>(R.id.close_con_search).setOnClickListener {
             Utils.fadeOutAnim(findViewById<FrameLayout>(R.id.search_bar_con), 1)
 
-            val delayClose = Handler()
+            val delayClose = Handler(Looper.getMainLooper())
             delayClose.postDelayed({
                 Utils.fadeInAnim(findViewById<FrameLayout>(R.id.title_box_con), 150)
             }, 151)
@@ -145,11 +165,13 @@ class ConstantsActivity : BaseActivity(), ConstantsAdapter.OnConstantsClickListe
                 val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
                 imm.hideSoftInputFromWindow(view.windowToken, 0)
             }
+
+            // closed -> update interception state
+            setBackInterceptionEnabled(anyOverlayOpen())
         }
     }
 
-
-    //listen to button presses in filter
+    // listen to button presses in filter
     private fun chipListeners(list: ArrayList<Constants>, recyclerView: RecyclerView) {
         val constantsPreference = ConstantsPreference(this)
         findViewById<Button>(R.id.mathematic_btn_con).setOnClickListener {
@@ -172,14 +194,13 @@ class ConstantsActivity : BaseActivity(), ConstantsAdapter.OnConstantsClickListe
         }
     }
 
-
-    //Update colors of buttons after filtering
+    // Update colors of buttons after filtering
     private fun updateButtonColor(btn: String) {
         findViewById<Button>(R.id.mathematic_btn_con).background = getDrawable(R.drawable.chip)
         findViewById<Button>(R.id.physics_btn_con).background = getDrawable(R.drawable.chip)
         findViewById<Button>(R.id.water_btn_con).background = getDrawable(R.drawable.chip)
 
-        val delay = Handler()
+        val delay = Handler(Looper.getMainLooper())
         delay.postDelayed({
             val resIDB = resources.getIdentifier(btn, "id", packageName)
             val button = findViewById<Button>(resIDB)
@@ -199,8 +220,7 @@ class ConstantsActivity : BaseActivity(), ConstantsAdapter.OnConstantsClickListe
         }
     }
 
-
-    //Filters
+    // Filters
     private fun filter(text: String, list: ArrayList<Constants>, recyclerView: RecyclerView) {
         val filteredList: ArrayList<Constants> = ArrayList()
         for (item in list) {
@@ -213,24 +233,116 @@ class ConstantsActivity : BaseActivity(), ConstantsAdapter.OnConstantsClickListe
                     filteredList.add(item)
                 }
             }
-            val handler = android.os.Handler()
-            handler.postDelayed({
-                if (recyclerView.adapter!!.itemCount == 0) {
-                    Anim.fadeIn(findViewById<AppCompatImageView
-                            >(R.id.empty_con_search_image), 300)
-                }
-                else {
-                    findViewById<AppCompatImageView>(R.id.empty_con_search_image).visibility = View.GONE
-                }
-            }, 10)
-            mAdapter.notifyDataSetChanged()
-            mAdapter.filterList(filteredList)
-            recyclerView.adapter = ConstantsAdapter(filteredList, this, this)
+        }
+        val handler = android.os.Handler(Looper.getMainLooper())
+        handler.postDelayed({
+            if (recyclerView.adapter!!.itemCount == 0) {
+                Anim.fadeIn(findViewById<AppCompatImageView>(R.id.empty_con_search_image), 300)
+            }
+            else {
+                findViewById<AppCompatImageView>(R.id.empty_con_search_image).visibility = View.GONE
+            }
+        }, 10)
+        mAdapter.filterList(filteredList)
+        mAdapter.notifyDataSetChanged()
+        recyclerView.adapter = ConstantsAdapter(filteredList, this, this)
+    }
+
+    // Centralized overlay detection
+    private fun anyOverlayOpen(): Boolean {
+        val searchBarVisible = findViewById<FrameLayout>(R.id.search_bar_con).visibility == View.VISIBLE
+        return searchBarVisible
+    }
+
+    // Close overlays if visible; return true when consumed.
+    private fun handleBackPress(): Boolean {
+        val searchBar = findViewById<FrameLayout>(R.id.search_bar_con)
+
+        // If search bar visible, close it
+        if (searchBar.visibility == View.VISIBLE) {
+            Utils.fadeOutAnim(searchBar, 1)
+            Handler(Looper.getMainLooper()).postDelayed({
+                Utils.fadeInAnim(findViewById<FrameLayout>(R.id.title_box_con), 150)
+            }, 151)
+
+            val view = this.currentFocus
+            if (view != null) {
+                val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                imm.hideSoftInputFromWindow(view.windowToken, 0)
+            }
+
+            // update interception state after closing
+            setBackInterceptionEnabled(anyOverlayOpen())
+            return true
+        }
+
+        return false
+    }
+
+    override fun onBackPressed() {
+        // Centralized back handling
+        if (!handleBackPress()) {
+            super.onBackPressed()
         }
     }
 
+    /**
+     * Centralized management of platform back interception for Android 14+.
+     * We forward platform back invocations to the OnBackPressedDispatcher to ensure
+     * gestures and hardware back buttons call the same callbacks.
+     */
+    private fun setBackInterceptionEnabled(enabled: Boolean) {
+        // Keep OnBackPressedCallback state in sync
+        backCallback?.isEnabled = enabled
 
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            if (enabled) {
+                if (onBackInvokedCb == null) {
+                    onBackInvokedCb = android.window.OnBackInvokedCallback {
+                        uiHandler.post {
+                            try {
+                                onBackPressedDispatcher.onBackPressed()
+                            } catch (e: Exception) {
+                                val consumed = handleBackPress()
+                                if (!consumed) {
+                                    // fallback to finishing
+                                    finish()
+                                }
+                            }
+                        }
+                    }
+                    try {
+                        onBackInvokedDispatcher.registerOnBackInvokedCallback(
+                            android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT,
+                            onBackInvokedCb!!
+                        )
+                    } catch (_: Exception) {
+                        // ignore registration errors on some devices
+                    }
+                }
+            } else {
+                if (onBackInvokedCb != null) {
+                    try {
+                        onBackInvokedDispatcher.unregisterOnBackInvokedCallback(onBackInvokedCb!!)
+                    } catch (_: Exception) {
+                        // ignore
+                    }
+                    onBackInvokedCb = null
+                }
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // Cleanup back interception hooks
+        backCallback?.remove()
+        backCallback = null
+        if (onBackInvokedCb != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            try {
+                onBackInvokedDispatcher.unregisterOnBackInvokedCallback(onBackInvokedCb!!)
+            } catch (_: Exception) { }
+            onBackInvokedCb = null
+        }
+    }
 }
-
-
-

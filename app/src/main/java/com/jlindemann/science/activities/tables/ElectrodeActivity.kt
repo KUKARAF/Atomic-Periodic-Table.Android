@@ -2,8 +2,10 @@ package com.jlindemann.science.activities.tables
 
 import android.content.Context
 import android.content.res.Configuration
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
+import android.os.Looper
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.View
@@ -13,6 +15,7 @@ import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.LinearLayout
+import androidx.activity.OnBackPressedCallback
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.floatingactionbutton.FloatingActionButton
@@ -28,10 +31,14 @@ import com.jlindemann.science.utils.Utils
 import java.util.*
 import kotlin.collections.ArrayList
 
-
 class ElectrodeActivity : BaseActivity() {
     private var seriesList = ArrayList<Series>()
     var mAdapter = ElectrodeAdapter(seriesList, this, this)
+
+    // Unified back handling fields
+    private var backCallback: OnBackPressedCallback? = null
+    private var onBackInvokedCb: android.window.OnBackInvokedCallback? = null
+    private val uiHandler = Handler(Looper.getMainLooper())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -47,6 +54,29 @@ class ElectrodeActivity : BaseActivity() {
         if (themePrefValue == 0) { setTheme(R.style.AppTheme) }
         if (themePrefValue == 1) { setTheme(R.style.AppThemeDark) }
         setContentView(R.layout.activity_electrode) //REMEMBER: Never move any function calls above this
+
+        // Register a lifecycle-aware OnBackPressedCallback (disabled by default).
+        backCallback = object : OnBackPressedCallback(false) {
+            override fun handleOnBackPressed() {
+                val consumed = handleBackPress()
+                if (!consumed) {
+                    // Not consumed by overlays -> fall back to default behaviour.
+                    // Temporarily disable the callback to avoid recursion, then dispatch.
+                    isEnabled = false
+                    try {
+                        onBackPressedDispatcher.onBackPressed()
+                    } finally {
+                        // Leave disabled by default for this activity (enable when overlays open)
+                        isEnabled = false
+                    }
+                }
+            }
+        }
+        onBackPressedDispatcher.addCallback(this, backCallback!!)
+
+        // Register platform callback for Android 14+ to forward gestures to the dispatcher when enabled.
+        // Start with interception disabled (we only need it when overlays are visible).
+        setBackInterceptionEnabled(false)
 
         recyclerView()
         clickSearch()
@@ -141,6 +171,9 @@ class ElectrodeActivity : BaseActivity() {
             findViewById<EditText>(R.id.edit_ele).requestFocus()
             val imm: InputMethodManager = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
             imm.showSoftInput(findViewById<EditText>(R.id.edit_ele), InputMethodManager.SHOW_IMPLICIT)
+
+            // Search bar shown -> enable back interception
+            setBackInterceptionEnabled(true)
         }
         findViewById<ImageButton>(R.id.close_ele_search).setOnClickListener {
             Utils.fadeOutAnim(findViewById<FrameLayout>(R.id.search_bar_ele), 1)
@@ -155,11 +188,101 @@ class ElectrodeActivity : BaseActivity() {
                 val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
                 imm.hideSoftInputFromWindow(view.windowToken, 0)
             }
+
+            // closed -> update interception state
+            setBackInterceptionEnabled(anyOverlayOpen())
         }
     }
 
+    // Basic handler for in-activity overlays (search bar currently)
+    private fun anyOverlayOpen(): Boolean {
+        val searchBarVisible = findViewById<FrameLayout>(R.id.search_bar_ele).visibility == View.VISIBLE
+        return searchBarVisible
+    }
 
+    // Close overlays if visible; return true when consumed.
+    private fun handleBackPress(): Boolean {
+        val searchBar = findViewById<FrameLayout>(R.id.search_bar_ele)
+
+        // If search bar visible, close it
+        if (searchBar.visibility == View.VISIBLE) {
+            Utils.fadeOutAnim(searchBar, 1)
+            // restore title box after a short delay to match original timing
+            Handler(Looper.getMainLooper()).postDelayed({
+                Utils.fadeInAnim(findViewById<FrameLayout>(R.id.title_box), 150)
+            }, 151)
+
+            val view = this.currentFocus
+            if (view != null) {
+                val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                imm.hideSoftInputFromWindow(view.windowToken, 0)
+            }
+
+            // update interception state after closing
+            setBackInterceptionEnabled(anyOverlayOpen())
+            return true
+        }
+
+        return false
+    }
+
+    /**
+     * Centralized management of platform back interception for Android 14+.
+     * We forward platform back invocations to the OnBackPressedDispatcher to ensure
+     * gestures and hardware back buttons call the same callbacks.
+     */
+    private fun setBackInterceptionEnabled(enabled: Boolean) {
+        // Keep OnBackPressedCallback state in sync
+        backCallback?.isEnabled = enabled
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            if (enabled) {
+                if (onBackInvokedCb == null) {
+                    onBackInvokedCb = android.window.OnBackInvokedCallback {
+                        uiHandler.post {
+                            try {
+                                onBackPressedDispatcher.onBackPressed()
+                            } catch (e: Exception) {
+                                val consumed = handleBackPress()
+                                if (!consumed) {
+                                    // fallback to finishing
+                                    finish()
+                                }
+                            }
+                        }
+                    }
+                    try {
+                        onBackInvokedDispatcher.registerOnBackInvokedCallback(
+                            android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT,
+                            onBackInvokedCb!!
+                        )
+                    } catch (_: Exception) {
+                        // ignore registration errors on some devices
+                    }
+                }
+            } else {
+                if (onBackInvokedCb != null) {
+                    try {
+                        onBackInvokedDispatcher.unregisterOnBackInvokedCallback(onBackInvokedCb!!)
+                    } catch (_: Exception) {
+                        // ignore
+                    }
+                    onBackInvokedCb = null
+                }
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // Cleanup back interception hooks
+        backCallback?.remove()
+        backCallback = null
+        if (onBackInvokedCb != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            try {
+                onBackInvokedDispatcher.unregisterOnBackInvokedCallback(onBackInvokedCb!!)
+            } catch (_: Exception) { }
+            onBackInvokedCb = null
+        }
+    }
 }
-
-
-

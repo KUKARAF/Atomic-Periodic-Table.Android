@@ -2,11 +2,15 @@ package com.jlindemann.science.activities.tools
 
 import android.content.Context
 import android.content.res.Configuration
+import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.*
 import android.widget.*
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.widget.AppCompatTextView
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -122,6 +126,11 @@ class UnitConversionActivity : BaseActivity() {
     private lateinit var favoritesAdapter: FavoriteRecyclerAdapter
     private val favoritesKey = "unit_favorites"
 
+    // Back handling fields (new unified logic used across activities)
+    private var backCallback: OnBackPressedCallback? = null
+    private var onBackInvokedCb: android.window.OnBackInvokedCallback? = null
+    private val handler = Handler(Looper.getMainLooper())
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val themePreference = ThemePreference(this)
@@ -177,6 +186,25 @@ class UnitConversionActivity : BaseActivity() {
         findViewById<ImageButton>(R.id.back_btn).setOnClickListener {
             this.onBackPressed()
         }
+
+        // Setup unified back handling: register a lifecycle-aware OnBackPressedCallback (disabled by default).
+        backCallback = object : OnBackPressedCallback(false) {
+            override fun handleOnBackPressed() {
+                // default behavior: no overlays in this activity; allow normal back navigation
+                if (!handleBackPress()) {
+                    // if not consumed, fall back to normal back action
+                    isEnabled = false
+                    // call framework onBackPressedDispatcher to let system handle (or finish)
+                    onBackPressedDispatcher.onBackPressed()
+                    // restore enabled state as appropriate (disabled by default for this activity)
+                    isEnabled = false
+                }
+            }
+        }
+        onBackPressedDispatcher.addCallback(this, backCallback!!)
+
+        // Register platform OnBackInvoked callback on Android 14+ to forward gestures to dispatcher
+        setBackInterceptionEnabled(true)
 
         // Check if favorite list should be shown or not (PRO)
         val proPref = ProVersion(this)
@@ -511,6 +539,81 @@ class UnitConversionActivity : BaseActivity() {
                 R.dimen.header_down_margin
             )
         findViewById<TextView>(R.id.unit_title_downstate).layoutParams = params2
+    }
+
+    // Basic handler for in-activity overlays (none for this activity currently)
+    private fun anyOverlayOpen(): Boolean {
+        // No overlays in this activity right now; return false.
+        return false
+    }
+
+    // Close overlays if visible; return true when consumed.
+    private fun handleBackPress(): Boolean {
+        // No overlays to close for this activity. Return false so default behavior occurs.
+        return false
+    }
+
+    /**
+     * Centralized management of platform back interception for Android 14+.
+     * We forward platform back invocations to the OnBackPressedDispatcher to ensure
+     * gestures and hardware back buttons call the same callbacks.
+     */
+    private fun setBackInterceptionEnabled(enabled: Boolean) {
+        // Keep the OnBackPressedCallback enabled state in sync when requested.
+        backCallback?.isEnabled = enabled
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            if (enabled) {
+                if (onBackInvokedCb == null) {
+                    onBackInvokedCb = android.window.OnBackInvokedCallback {
+                        handler.post {
+                            try {
+                                // Forward to the OnBackPressedDispatcher which will invoke registered callbacks.
+                                onBackPressedDispatcher.onBackPressed()
+                            } catch (e: Exception) {
+                                // Fallback if dispatcher fails
+                                val consumed = handleBackPress()
+                                if (!consumed) {
+                                    // Default fallback: finish activity
+                                    finish()
+                                }
+                            }
+                        }
+                    }
+                    try {
+                        onBackInvokedDispatcher.registerOnBackInvokedCallback(
+                            android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT,
+                            onBackInvokedCb!!
+                        )
+                    } catch (_: Exception) {
+                        // ignore registration errors on some devices
+                    }
+                }
+            } else {
+                if (onBackInvokedCb != null) {
+                    try {
+                        onBackInvokedDispatcher.unregisterOnBackInvokedCallback(onBackInvokedCb!!)
+                    } catch (_: Exception) {
+                        // ignore
+                    }
+                    onBackInvokedCb = null
+                }
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // Cleanup back interception hooks
+        backCallback?.remove()
+        backCallback = null
+        if (onBackInvokedCb != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            try {
+                onBackInvokedDispatcher.unregisterOnBackInvokedCallback(onBackInvokedCb!!)
+            } catch (_: Exception) {
+            }
+            onBackInvokedCb = null
+        }
     }
 }
 

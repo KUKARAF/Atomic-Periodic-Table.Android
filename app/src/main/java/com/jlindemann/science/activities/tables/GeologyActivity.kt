@@ -2,9 +2,10 @@ package com.jlindemann.science.activities.tables
 
 import android.content.Context
 import android.content.res.Configuration
-import android.graphics.ColorMatrixColorFilter
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
+import android.os.Looper
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.View
@@ -14,40 +15,33 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageButton
-import android.widget.ImageView
 import android.widget.LinearLayout
-import android.widget.ProgressBar
-import android.widget.TextView
-import androidx.cardview.widget.CardView
+import androidx.activity.OnBackPressedCallback
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.jlindemann.science.R
 import com.jlindemann.science.activities.BaseActivity
-import com.jlindemann.science.adapter.ElectrodeAdapter
-import com.jlindemann.science.adapter.EquationsAdapter
 import com.jlindemann.science.adapter.GeologyAdapter
 import com.jlindemann.science.animations.Anim
-import com.jlindemann.science.model.Dictionary
-import com.jlindemann.science.model.DictionaryModel
-import com.jlindemann.science.model.Equation
 import com.jlindemann.science.model.Geology
 import com.jlindemann.science.model.GeologyModel
-import com.jlindemann.science.model.Poisson
-import com.jlindemann.science.preferences.DictionaryPreferences
 import com.jlindemann.science.preferences.GeologyPreference
 import com.jlindemann.science.preferences.MostUsedPreference
-import com.jlindemann.science.preferences.ProVersion
 import com.jlindemann.science.preferences.ThemePreference
-import com.jlindemann.science.utils.ToastUtil
 import com.jlindemann.science.utils.Utils
+import android.widget.TextView
 import java.util.*
 import kotlin.collections.ArrayList
-
 
 class GeologyActivity : BaseActivity(), GeologyAdapter.OnGeologyClickListener {
     private var geologyList = ArrayList<Geology>()
     var mAdapter = GeologyAdapter(geologyList, this, this)
+
+    // Unified back handling fields
+    private var backCallback: OnBackPressedCallback? = null
+    private var onBackInvokedCb: android.window.OnBackInvokedCallback? = null
+    private val uiHandler = Handler(Looper.getMainLooper())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -63,6 +57,26 @@ class GeologyActivity : BaseActivity(), GeologyAdapter.OnGeologyClickListener {
         if (themePrefValue == 1) { setTheme(R.style.AppThemeDark) }
         setContentView(R.layout.activity_geology) //REMEMBER: Never move any function calls above this
 
+        // Register lifecycle-aware OnBackPressedCallback (disabled by default).
+        backCallback = object : OnBackPressedCallback(false) {
+            override fun handleOnBackPressed() {
+                val consumed = handleBackPress()
+                if (!consumed) {
+                    // No overlay consumed it -> fall back to default behaviour.
+                    isEnabled = false
+                    try {
+                        onBackPressedDispatcher.onBackPressed()
+                    } finally {
+                        isEnabled = false
+                    }
+                }
+            }
+        }
+        onBackPressedDispatcher.addCallback(this, backCallback!!)
+
+        // Start with platform OnBackInvoked interception disabled; enable on overlays.
+        setBackInterceptionEnabled(false)
+
         val recyclerView = findViewById<RecyclerView>(R.id.geo_view)
         recyclerView.layoutManager = LinearLayoutManager(this, RecyclerView.VERTICAL, false)
         val item = ArrayList<Geology>()
@@ -74,7 +88,14 @@ class GeologyActivity : BaseActivity(), GeologyAdapter.OnGeologyClickListener {
         findViewById<Button>(R.id.clear_btn).visibility = View.GONE
 
         findViewById<FrameLayout>(R.id.view_geo).systemUiVisibility = View.SYSTEM_UI_FLAG_LAYOUT_STABLE or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-        findViewById<TextView>(R.id.detail_background_geo).setOnClickListener { Utils.fadeOutAnim(findViewById<FrameLayout>(R.id.geo_details), 300) }
+
+        // When tapping background, hide panel and update interception
+        findViewById<TextView>(R.id.detail_background_geo).setOnClickListener {
+            Utils.fadeOutAnim(findViewById<FrameLayout>(R.id.geo_details), 300)
+            // update interception state after hiding overlays
+            setBackInterceptionEnabled(anyOverlayOpen())
+        }
+
         findViewById<ImageButton>(R.id.back_btn_geo).setOnClickListener {
             this.onBackPressed()
         }
@@ -93,8 +114,9 @@ class GeologyActivity : BaseActivity(), GeologyAdapter.OnGeologyClickListener {
         findViewById<TextView>(R.id.geo_magnetism).text = "Magnetism: " +item.magnetism
         findViewById<TextView>(R.id.geo_hydrochloride).text = item.hydrochloride
 
-        //Fade in geo_details
+        // Fade in geo_details and enable back interception while open
         Utils.fadeInAnim(findViewById<FrameLayout>(R.id.geo_details), 300)
+        setBackInterceptionEnabled(true)
     }
 
     override fun onApplySystemInsets(top: Int, bottom: Int, left: Int, right: Int) {
@@ -140,9 +162,7 @@ class GeologyActivity : BaseActivity(), GeologyAdapter.OnGeologyClickListener {
         })
     }
 
-
-
-    //Filters the listView by different sorts of material by using the geossonPreference to filter by the stringValue.
+    // Filters the listView by different sorts of material by using the geossonPreference to filter by the stringValue.
     private fun filter(text: String, list: ArrayList<Geology>, recyclerView: RecyclerView) {
         val filteredList: ArrayList<Geology> = ArrayList()
         for (item in list) {
@@ -154,7 +174,7 @@ class GeologyActivity : BaseActivity(), GeologyAdapter.OnGeologyClickListener {
                 }
             }
         }
-        val handler = android.os.Handler()
+        val handler = Handler(Looper.getMainLooper())
         handler.postDelayed({
             if (recyclerView.adapter!!.itemCount == 0) {
                 Anim.fadeIn(findViewById<LinearLayout>(R.id.empty_search_box_geo), 300)
@@ -176,11 +196,14 @@ class GeologyActivity : BaseActivity(), GeologyAdapter.OnGeologyClickListener {
             findViewById<EditText>(R.id.edit_geo).requestFocus()
             val imm: InputMethodManager = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
             imm.showSoftInput(findViewById<EditText>(R.id.edit_geo), InputMethodManager.SHOW_IMPLICIT)
+
+            // Search bar shown -> enable back interception
+            setBackInterceptionEnabled(true)
         }
         findViewById<ImageButton>(R.id.close_geo_search).setOnClickListener {
             Utils.fadeOutAnim(findViewById<FrameLayout>(R.id.search_bar_geo), 1)
 
-            val delayClose = Handler()
+            val delayClose = Handler(Looper.getMainLooper())
             delayClose.postDelayed({
                 Utils.fadeInAnim(findViewById<FrameLayout>(R.id.title_box_geo), 150)
             }, 151)
@@ -190,6 +213,9 @@ class GeologyActivity : BaseActivity(), GeologyAdapter.OnGeologyClickListener {
                 val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
                 imm.hideSoftInputFromWindow(view.windowToken, 0)
             }
+
+            // closed -> update interception state
+            setBackInterceptionEnabled(anyOverlayOpen())
         }
     }
 
@@ -222,7 +248,7 @@ class GeologyActivity : BaseActivity(), GeologyAdapter.OnGeologyClickListener {
         findViewById<Button>(R.id.soils_btn).background = getDrawable(R.drawable.chip)
         findViewById<Button>(R.id.minerals_btn).background = getDrawable(R.drawable.chip)
 
-        val delay = Handler()
+        val delay = Handler(Looper.getMainLooper())
         delay.postDelayed({
             val resIDB = resources.getIdentifier(btn, "id", packageName)
             val button = findViewById<Button>(resIDB)
@@ -241,7 +267,112 @@ class GeologyActivity : BaseActivity(), GeologyAdapter.OnGeologyClickListener {
             findViewById<Button>(R.id.clear_btn).visibility = View.GONE
         }
     }
+
+    // Centralized overlay detection
+    private fun anyOverlayOpen(): Boolean {
+        val detailsVisible = findViewById<FrameLayout>(R.id.geo_details).visibility == View.VISIBLE
+        val backgroundVisible = findViewById<TextView>(R.id.detail_background_geo).visibility == View.VISIBLE
+        val searchBarVisible = findViewById<FrameLayout>(R.id.search_bar_geo).visibility == View.VISIBLE
+        return detailsVisible || backgroundVisible || searchBarVisible
+    }
+
+    // Close overlays if visible; return true when consumed.
+    private fun handleBackPress(): Boolean {
+        val details = findViewById<FrameLayout>(R.id.geo_details)
+        val background = findViewById<TextView>(R.id.detail_background_geo)
+        val searchBar = findViewById<FrameLayout>(R.id.search_bar_geo)
+
+        // If details visible, hide them
+        if (details.visibility == View.VISIBLE || background.visibility == View.VISIBLE) {
+            Utils.fadeOutAnim(details, 300)
+            Utils.fadeOutAnim(background, 300)
+            setBackInterceptionEnabled(anyOverlayOpen())
+            return true
+        }
+
+        // If search bar visible, close it
+        if (searchBar.visibility == View.VISIBLE) {
+            Utils.fadeOutAnim(searchBar, 1)
+            Handler(Looper.getMainLooper()).postDelayed({
+                Utils.fadeInAnim(findViewById<FrameLayout>(R.id.title_box_geo), 150)
+            }, 151)
+
+            val view = this.currentFocus
+            if (view != null) {
+                val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                imm.hideSoftInputFromWindow(view.windowToken, 0)
+            }
+            setBackInterceptionEnabled(anyOverlayOpen())
+            return true
+        }
+
+        return false
+    }
+
+    override fun onBackPressed() {
+        // Use centralized handler so gestures and hardware back behave consistently.
+        if (!handleBackPress()) {
+            super.onBackPressed()
+        }
+    }
+
+    /**
+     * Centralized management of platform back interception for Android 14+.
+     * We forward platform back invocations to the OnBackPressedDispatcher to ensure
+     * gestures and hardware back buttons call the same callbacks.
+     */
+    private fun setBackInterceptionEnabled(enabled: Boolean) {
+        // Keep OnBackPressedCallback state in sync
+        backCallback?.isEnabled = enabled
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            if (enabled) {
+                if (onBackInvokedCb == null) {
+                    onBackInvokedCb = android.window.OnBackInvokedCallback {
+                        uiHandler.post {
+                            try {
+                                onBackPressedDispatcher.onBackPressed()
+                            } catch (e: Exception) {
+                                val consumed = handleBackPress()
+                                if (!consumed) {
+                                    // fallback to finishing
+                                    finish()
+                                }
+                            }
+                        }
+                    }
+                    try {
+                        onBackInvokedDispatcher.registerOnBackInvokedCallback(
+                            android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT,
+                            onBackInvokedCb!!
+                        )
+                    } catch (_: Exception) {
+                        // ignore registration errors on some devices
+                    }
+                }
+            } else {
+                if (onBackInvokedCb != null) {
+                    try {
+                        onBackInvokedDispatcher.unregisterOnBackInvokedCallback(onBackInvokedCb!!)
+                    } catch (_: Exception) {
+                        // ignore
+                    }
+                    onBackInvokedCb = null
+                }
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // Cleanup back interception hooks
+        backCallback?.remove()
+        backCallback = null
+        if (onBackInvokedCb != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            try {
+                onBackInvokedDispatcher.unregisterOnBackInvokedCallback(onBackInvokedCb!!)
+            } catch (_: Exception) { }
+            onBackInvokedCb = null
+        }
+    }
 }
-
-
-

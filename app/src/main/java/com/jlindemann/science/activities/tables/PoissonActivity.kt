@@ -2,9 +2,10 @@ package com.jlindemann.science.activities.tables
 
 import android.content.Context
 import android.content.res.Configuration
-import android.graphics.ColorMatrixColorFilter
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
+import android.os.Looper
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.View
@@ -14,39 +15,35 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageButton
-import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
+import androidx.activity.OnBackPressedCallback
 import androidx.cardview.widget.CardView
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.jlindemann.science.R
 import com.jlindemann.science.activities.BaseActivity
-import com.jlindemann.science.adapter.ElectrodeAdapter
-import com.jlindemann.science.adapter.EquationsAdapter
 import com.jlindemann.science.adapter.PoissonAdapter
 import com.jlindemann.science.animations.Anim
-import com.jlindemann.science.model.Dictionary
-import com.jlindemann.science.model.DictionaryModel
-import com.jlindemann.science.model.Equation
 import com.jlindemann.science.model.Poisson
 import com.jlindemann.science.model.PoissonModel
-import com.jlindemann.science.preferences.DictionaryPreferences
 import com.jlindemann.science.preferences.MostUsedPreference
 import com.jlindemann.science.preferences.PoissonPreferences
-import com.jlindemann.science.preferences.ProVersion
 import com.jlindemann.science.preferences.ThemePreference
-import com.jlindemann.science.utils.ToastUtil
 import com.jlindemann.science.utils.Utils
 import java.util.*
 import kotlin.collections.ArrayList
 
-
 class PoissonActivity : BaseActivity(), PoissonAdapter.OnPoissonClickListener {
     private var poissonList = ArrayList<Poisson>()
     var mAdapter = PoissonAdapter(poissonList, this, this)
+
+    // Unified back handling fields
+    private var backCallback: OnBackPressedCallback? = null
+    private var onBackInvokedCb: android.window.OnBackInvokedCallback? = null
+    private val uiHandler = Handler(Looper.getMainLooper())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -61,6 +58,29 @@ class PoissonActivity : BaseActivity(), PoissonAdapter.OnPoissonClickListener {
         if (themePrefValue == 0) { setTheme(R.style.AppTheme) }
         if (themePrefValue == 1) { setTheme(R.style.AppThemeDark) }
         setContentView(R.layout.activity_poisson) //REMEMBER: Never move any function calls above this
+
+        // Register lifecycle-aware OnBackPressedCallback (disabled by default).
+        backCallback = object : OnBackPressedCallback(false) {
+            override fun handleOnBackPressed() {
+                val consumed = handleBackPress()
+                if (!consumed) {
+                    // Not consumed by overlays -> fall back to default behaviour.
+                    // Temporarily disable the callback to avoid recursion, then dispatch.
+                    isEnabled = false
+                    try {
+                        onBackPressedDispatcher.onBackPressed()
+                    } finally {
+                        // leave disabled by default
+                        isEnabled = false
+                    }
+                }
+            }
+        }
+        onBackPressedDispatcher.addCallback(this, backCallback!!)
+
+        // Register platform callback for Android 14+ to forward gestures to the dispatcher when enabled.
+        // Start with interception disabled (we only need it when overlays are visible).
+        setBackInterceptionEnabled(false)
 
         val recyclerView = findViewById<RecyclerView>(R.id.poi_view)
         recyclerView.layoutManager = LinearLayoutManager(this, RecyclerView.VERTICAL, false)
@@ -83,8 +103,16 @@ class PoissonActivity : BaseActivity(), PoissonAdapter.OnPoissonClickListener {
         clickSearch()
         chipListeners(itempoi, recyclerView)
         findViewById<Button>(R.id.clear_btn).visibility = View.GONE
-        findViewById<FrameLayout>(R.id.poi_det_inc_background).setOnClickListener { hideInfoPanel() }
-        findViewById<ImageButton>(R.id.close_detail_poisson_btn).setOnClickListener { hideInfoPanel() }
+
+        // When tapping background, hide panel and update interception
+        findViewById<FrameLayout>(R.id.poi_det_inc_background).setOnClickListener {
+            hideInfoPanel()
+            setBackInterceptionEnabled(anyOverlayOpen())
+        }
+        findViewById<ImageButton>(R.id.close_detail_poisson_btn).setOnClickListener {
+            hideInfoPanel()
+            setBackInterceptionEnabled(anyOverlayOpen())
+        }
 
         findViewById<FrameLayout>(R.id.view_poi).systemUiVisibility = View.SYSTEM_UI_FLAG_LAYOUT_STABLE or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
         findViewById<ImageButton>(R.id.back_btn_poi).setOnClickListener {
@@ -133,6 +161,9 @@ class PoissonActivity : BaseActivity(), PoissonAdapter.OnPoissonClickListener {
         Anim.fadeIn(findViewById<ConstraintLayout>(R.id.poi_det_inc), 150)
         findViewById<FrameLayout>(R.id.poi_det_inc_background).visibility = View.VISIBLE
 
+        // Info panel shown -> enable back interception
+        setBackInterceptionEnabled(true)
+
         findViewById<ProgressBar>(R.id.pb_poisson_detail).progress = (start*100*2).toInt() //*2 as 100% is 0.5
         findViewById<ProgressBar>(R.id.pb_poisson_detail).secondaryProgress = (end*100*2).toInt() //*2 as 100% is 0.5
         findViewById<TextView>(R.id.detail_poisson_title).text = title
@@ -142,6 +173,9 @@ class PoissonActivity : BaseActivity(), PoissonAdapter.OnPoissonClickListener {
     private fun hideInfoPanel() {
         Anim.fadeOutAnim(findViewById<ConstraintLayout>(R.id.poi_det_inc), 150)
         findViewById<FrameLayout>(R.id.poi_det_inc_background).visibility = View.GONE
+
+        // After hiding, update interception state
+        setBackInterceptionEnabled(anyOverlayOpen())
     }
 
     //Filters the listView by different sorts of material by using the PoissonPreference to filter by the stringValue.
@@ -178,6 +212,9 @@ class PoissonActivity : BaseActivity(), PoissonAdapter.OnPoissonClickListener {
             findViewById<EditText>(R.id.edit_poi).requestFocus()
             val imm: InputMethodManager = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
             imm.showSoftInput(findViewById<EditText>(R.id.edit_poi), InputMethodManager.SHOW_IMPLICIT)
+
+            // Search bar shown -> enable back interception
+            setBackInterceptionEnabled(true)
         }
         findViewById<ImageButton>(R.id.close_poi_search).setOnClickListener {
             Utils.fadeOutAnim(findViewById<FrameLayout>(R.id.search_bar_poi), 1)
@@ -192,6 +229,9 @@ class PoissonActivity : BaseActivity(), PoissonAdapter.OnPoissonClickListener {
                 val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
                 imm.hideSoftInputFromWindow(view.windowToken, 0)
             }
+
+            // closed -> update interception state
+            setBackInterceptionEnabled(anyOverlayOpen())
         }
     }
 
@@ -244,14 +284,100 @@ class PoissonActivity : BaseActivity(), PoissonAdapter.OnPoissonClickListener {
         }
     }
 
-    //handle back action
-    override fun onBackPressed() {
-        if (findViewById<CardView>(R.id.poi_det_inc).visibility == View.VISIBLE) {
+    // Centralized overlay detection
+    private fun anyOverlayOpen(): Boolean {
+        val infoVisible = findViewById<ConstraintLayout>(R.id.poi_det_inc).visibility == View.VISIBLE
+        val backgroundVisible = findViewById<FrameLayout>(R.id.poi_det_inc_background).visibility == View.VISIBLE
+        val searchBarVisible = findViewById<FrameLayout>(R.id.search_bar_poi).visibility == View.VISIBLE
+        return infoVisible || backgroundVisible || searchBarVisible
+    }
+
+    // Close overlays if visible; return true when consumed.
+    private fun handleBackPress(): Boolean {
+        val infoPanel = findViewById<ConstraintLayout>(R.id.poi_det_inc)
+        val background = findViewById<FrameLayout>(R.id.poi_det_inc_background)
+        val searchBar = findViewById<FrameLayout>(R.id.search_bar_poi)
+
+        if (infoPanel.visibility == View.VISIBLE || background.visibility == View.VISIBLE) {
             hideInfoPanel()
-            return
-        } else { super.onBackPressed() }
+            setBackInterceptionEnabled(anyOverlayOpen())
+            return true
+        }
+
+        if (searchBar.visibility == View.VISIBLE) {
+            Utils.fadeOutAnim(searchBar, 1)
+            Handler(Looper.getMainLooper()).postDelayed({
+                Utils.fadeInAnim(findViewById<FrameLayout>(R.id.title_box_poi), 150)
+            }, 151)
+            val view = this.currentFocus
+            if (view != null) {
+                val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                imm.hideSoftInputFromWindow(view.windowToken, 0)
+            }
+            setBackInterceptionEnabled(anyOverlayOpen())
+            return true
+        }
+
+        return false
+    }
+
+    /**
+     * Centralized management of platform back interception for Android 14+.
+     * We forward platform back invocations to the OnBackPressedDispatcher to ensure
+     * gestures and hardware back buttons call the same callbacks.
+     */
+    private fun setBackInterceptionEnabled(enabled: Boolean) {
+        // Keep OnBackPressedCallback state in sync
+        backCallback?.isEnabled = enabled
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            if (enabled) {
+                if (onBackInvokedCb == null) {
+                    onBackInvokedCb = android.window.OnBackInvokedCallback {
+                        uiHandler.post {
+                            try {
+                                onBackPressedDispatcher.onBackPressed()
+                            } catch (e: Exception) {
+                                val consumed = handleBackPress()
+                                if (!consumed) {
+                                    // fallback to finishing
+                                    finish()
+                                }
+                            }
+                        }
+                    }
+                    try {
+                        onBackInvokedDispatcher.registerOnBackInvokedCallback(
+                            android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT,
+                            onBackInvokedCb!!
+                        )
+                    } catch (_: Exception) {
+                        // ignore registration errors on some devices
+                    }
+                }
+            } else {
+                if (onBackInvokedCb != null) {
+                    try {
+                        onBackInvokedDispatcher.unregisterOnBackInvokedCallback(onBackInvokedCb!!)
+                    } catch (_: Exception) {
+                        // ignore
+                    }
+                    onBackInvokedCb = null
+                }
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // Cleanup back interception hooks
+        backCallback?.remove()
+        backCallback = null
+        if (onBackInvokedCb != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            try {
+                onBackInvokedDispatcher.unregisterOnBackInvokedCallback(onBackInvokedCb!!)
+            } catch (_: Exception) { }
+            onBackInvokedCb = null
+        }
     }
 }
-
-
-
