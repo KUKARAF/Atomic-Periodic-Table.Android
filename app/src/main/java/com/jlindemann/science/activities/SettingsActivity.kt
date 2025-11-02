@@ -170,16 +170,29 @@ class SettingsActivity : BaseActivity() {
         // We'll enable interception only when overlays (theme panel) are visible.
         backCallback = object : OnBackPressedCallback(false) {
             override fun handleOnBackPressed() {
-                // Close overlays if any; after handling, keep interception enabled only if overlays remain.
-                handleBackPress()
-                backCallback?.isEnabled = anyOverlayOpen()
+                // First try to close overlays if any
+                val consumed = handleBackPress()
+                if (consumed) {
+                    // keep interception only while overlays remain open
+                    backCallback?.isEnabled = anyOverlayOpen()
+                    return
+                }
+
+                // Nothing to close -> forward to system immediately (avoid swallowing one back press)
+                // Disable interception and perform system back behavior.
+                backCallback?.isEnabled = false
+                try {
+                    if (isTaskRoot) {
+                        moveTaskToBack(true)
+                    } else {
+                        finish()
+                    }
+                } catch (e: Exception) {
+                    super@SettingsActivity.onBackPressed()
+                }
             }
         }
         onBackPressedDispatcher.addCallback(this, backCallback!!)
-
-        // Note: For predictive back (Android 14+), we only register the OnBackInvoked callback while
-        // interception is needed (so the system can show the home/preview animation when no interception).
-        // The setBackInterceptionEnabled() helper below will manage this dynamically.
 
         // --- Language selection setup ---
         findViewById<RelativeLayout>(R.id.language_setting).setOnClickListener {
@@ -368,12 +381,8 @@ class SettingsActivity : BaseActivity() {
 
         return if (themePanel.visibility == View.VISIBLE) {
             Utils.fadeOutAnim(themePanel, 300) // Close panel
-            // After closing theme panel, disable interception if nothing else is open.
-            // We post a tiny delay to allow the fade-out to start; the interception state will
-            // be updated by the callback's post-call `anyOverlayOpen()` check, but ensure OnBackInvoked unregistered:
-            Handler().postDelayed({
-                setBackInterceptionEnabled(anyOverlayOpen())
-            }, 10)
+            // Immediately stop intercepting so next back goes to system (prevents needing an extra press)
+            setBackInterceptionEnabled(false)
             true // Consume back press
         } else {
             false // Allow system to handle it (shows preview animation)
@@ -480,8 +489,8 @@ class SettingsActivity : BaseActivity() {
                 } // Night mode is active, we're using dark theme
             }
             Utils.fadeOutAnim(themePanel, 300)
-            // theme closed -> disable interception shortly after fade begins
-            Handler().postDelayed({ setBackInterceptionEnabled(false) }, 10)
+            // Immediately disable interception so next back goes to system
+            setBackInterceptionEnabled(false)
 
             val delayChange = Handler()
             delayChange.postDelayed({
@@ -498,7 +507,7 @@ class SettingsActivity : BaseActivity() {
             themePreference.setValue(0)
             setTheme(R.style.AppTheme)
             Utils.fadeOutAnim(themePanel, 300)
-            Handler().postDelayed({ setBackInterceptionEnabled(false) }, 10)
+            setBackInterceptionEnabled(false)
 
             val delayChange = Handler()
             delayChange.postDelayed({
@@ -515,7 +524,7 @@ class SettingsActivity : BaseActivity() {
             themePreference.setValue(1)
             setTheme(R.style.AppThemeDark)
             Utils.fadeOutAnim(themePanel, 300)
-            Handler().postDelayed({ setBackInterceptionEnabled(false) }, 10)
+            setBackInterceptionEnabled(false)
 
             val delayChange = Handler()
             delayChange.postDelayed({
@@ -534,12 +543,12 @@ class SettingsActivity : BaseActivity() {
         }
         findViewById<TextView>(R.id.theme_background).setOnClickListener {
             Utils.fadeOutAnim(themePanel, 300)
-            // closed -> disable interception shortly after fade begins
-            Handler().postDelayed({ setBackInterceptionEnabled(false) }, 10)
+            // closed -> disable interception immediately
+            setBackInterceptionEnabled(false)
         }
         findViewById<TextView>(R.id.cancel_btn).setOnClickListener {
             Utils.fadeOutAnim(themePanel, 300)
-            Handler().postDelayed({ setBackInterceptionEnabled(false) }, 10)
+            setBackInterceptionEnabled(false)
         }
     }
 

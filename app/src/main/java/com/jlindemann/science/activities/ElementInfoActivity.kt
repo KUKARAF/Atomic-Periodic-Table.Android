@@ -112,16 +112,32 @@ class ElementInfoActivity : InfoExtension() {
         }
         else {
             findViewById<LinearLayout>(R.id.more_properties).visibility = View.VISIBLE //Changed as implementing new PRO dialog
-            findViewById<LinearLayout>(R.id.hardness_properties).visibility = View.GONE
+            findViewById<LinearLayout>(R.id.hardness_properties).visibility = View.VISIBLE //Changed as implementing new PRO dialog
         }
 
         // Register lifecycle-aware OnBackPressedCallback in DISABLED state.
         // We'll enable it only when overlays (shell, emission detail) are visible.
         backCallback = object : OnBackPressedCallback(false) {
             override fun handleOnBackPressed() {
-                // If we handled the back press (closed overlay), keep interception only while overlays remain.
+                // Try to close overlays first
                 val consumed = handleBackPress()
-                backCallback?.isEnabled = anyOverlayOpen()
+                if (!consumed) {
+                    // Nothing to close -> forward to system/back behaviour.
+                    backCallback?.isEnabled = false
+                    try {
+                        if (isTaskRoot) {
+                            moveTaskToBack(true)
+                        } else {
+                            finish()
+                        }
+                    } catch (e: Exception) {
+                        // Fallback to default
+                        super@ElementInfoActivity.onBackPressed()
+                    }
+                } else {
+                    // Keep interception enabled only while overlays remain
+                    backCallback?.isEnabled = anyOverlayOpen()
+                }
             }
         }
         onBackPressedDispatcher.addCallback(this, backCallback!!)
@@ -172,14 +188,20 @@ class ElementInfoActivity : InfoExtension() {
             if (enabled) {
                 if (onBackInvokedCb == null) {
                     onBackInvokedCb = android.window.OnBackInvokedCallback {
-                        // Mirror the OnBackPressedCallback behavior
-                        handleBackPress()
+                        // Mirror OnBackPressedCallback behavior
+                        val consumed = handleBackPress()
                         if (!anyOverlayOpen()) {
                             try {
                                 onBackInvokedDispatcher.unregisterOnBackInvokedCallback(onBackInvokedCb!!)
                             } catch (_: Exception) { }
                             onBackInvokedCb = null
                             backCallback?.isEnabled = false
+                            // If nothing was consumed by handleBackPress, forward to system behavior
+                            if (!consumed) {
+                                try {
+                                    if (isTaskRoot) moveTaskToBack(true) else finish()
+                                } catch (_: Exception) { /* ignore */ }
+                            }
                         }
                     }
                     onBackInvokedDispatcher.registerOnBackInvokedCallback(
@@ -208,17 +230,14 @@ class ElementInfoActivity : InfoExtension() {
         return if (shellBg.visibility == View.VISIBLE || shell.visibility == View.VISIBLE) {
             Utils.fadeOutAnim(shell, 300)
             Utils.fadeOutAnim(shellBg, 300)
-            // after closing overlay, update interception state so system preview shows when nothing left
-            Handler().postDelayed({
-                setBackInterceptionEnabled(anyOverlayOpen())
-            }, 10)
+            // update interception state immediately so the next system back/gesture is routed correctly
+            setBackInterceptionEnabled(anyOverlayOpen())
             true
         } else if (detail.visibility == View.VISIBLE || detailBg.visibility == View.VISIBLE) {
             Utils.fadeOutAnim(detail, 300)
             Utils.fadeOutAnim(detailBg, 300)
-            Handler().postDelayed({
-                setBackInterceptionEnabled(anyOverlayOpen())
-            }, 10)
+            // update interception state immediately so the next system back/gesture is routed correctly
+            setBackInterceptionEnabled(anyOverlayOpen())
             true
         } else {
             false
@@ -273,12 +292,14 @@ class ElementInfoActivity : InfoExtension() {
         findViewById<FloatingActionButton>(R.id.close_shell_btn).setOnClickListener {
             Utils.fadeOutAnim(findViewById<CardView>(R.id.shell), 300)
             Utils.fadeOutAnim(findViewById<RealtimeBlurView>(R.id.shell_background), 300)
-            Handler().postDelayed({ setBackInterceptionEnabled(anyOverlayOpen()) }, 10)
+            // update interception state immediately (do not defer)
+            setBackInterceptionEnabled(anyOverlayOpen())
         }
         findViewById<RealtimeBlurView>(R.id.shell_background).setOnClickListener {
             Utils.fadeOutAnim(findViewById<CardView>(R.id.shell), 300)
             Utils.fadeOutAnim(findViewById<RealtimeBlurView>(R.id.shell_background), 300)
-            Handler().postDelayed({ setBackInterceptionEnabled(anyOverlayOpen()) }, 10)
+            // update interception state immediately (do not defer)
+            setBackInterceptionEnabled(anyOverlayOpen())
         }
         findViewById<ImageView>(R.id.sp_img).setOnClickListener {
             Utils.fadeInAnim(findViewById<CardView>(R.id.detail_emission), 300)
@@ -289,12 +310,14 @@ class ElementInfoActivity : InfoExtension() {
         findViewById<FloatingActionButton>(R.id.close_emission_btn).setOnClickListener {
             Utils.fadeOutAnim(findViewById<CardView>(R.id.detail_emission), 300)
             Utils.fadeOutAnim(findViewById<RealtimeBlurView>(R.id.detail_emission_background), 300)
-            Handler().postDelayed({ setBackInterceptionEnabled(anyOverlayOpen()) }, 10)
+            // update interception state immediately (do not defer)
+            setBackInterceptionEnabled(anyOverlayOpen())
         }
         findViewById<RealtimeBlurView>(R.id.detail_emission_background).setOnClickListener {
             Utils.fadeOutAnim(findViewById<CardView>(R.id.detail_emission), 300)
             Utils.fadeOutAnim(findViewById<RealtimeBlurView>(R.id.detail_emission_background), 300)
-            Handler().postDelayed({ setBackInterceptionEnabled(anyOverlayOpen()) }, 10)
+            // update interception state immediately (do not defer)
+            setBackInterceptionEnabled(anyOverlayOpen())
         }
     }
 

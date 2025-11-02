@@ -573,6 +573,42 @@ abstract class InfoExtension : BaseActivity(), View.OnApplyWindowInsetsListener 
                 }
             }
         }
+        else {
+            // Set the "get pro" text
+            findViewById<TextView>(R.id.fire_hazard_text).text = getString(R.string.get_pro_element_text)
+            findViewById<TextView>(R.id.health_hazard_text).text = getString(R.string.get_pro_element_text)
+            findViewById<TextView>(R.id.reactivity_hazard_text).text = getString(R.string.get_pro_element_text)
+            findViewById<TextView>(R.id.specific_hazard_text).text = getString(R.string.get_pro_element_text)
+            findViewById<TextView>(R.id.fire_hazard_txt).text = getString(R.string.get_pro_short)
+            findViewById<TextView>(R.id.health_hazard_txt).text = getString(R.string.get_pro_short)
+            findViewById<TextView>(R.id.reactivity_hazard_txt).text = getString(R.string.get_pro_short)
+            findViewById<TextView>(R.id.specific_hazard_txt).text = getString(R.string.get_pro_short)
+
+            // Make the "get pro" TextViews clickable and open ProActivity when clicked.
+            // Collect the IDs that show "get pro" text in the else branch.
+            val proClickableIds = listOf(
+                R.id.fire_hazard_text,
+                R.id.health_hazard_text,
+                R.id.reactivity_hazard_text,
+                R.id.specific_hazard_text,
+                R.id.fire_hazard_txt,
+                R.id.health_hazard_txt,
+                R.id.reactivity_hazard_txt,
+                R.id.specific_hazard_txt
+            )
+
+            for (id in proClickableIds) {
+                findViewById<TextView>(id).apply {
+                    isClickable = true
+                    isFocusable = true
+                    setOnClickListener {
+                        // Use the Activity context explicitly to create the Intent
+                        val intent = Intent(this@InfoExtension, ProActivity::class.java)
+                        this@InfoExtension.startActivity(intent)
+                    }
+                }
+            }
+        }
     }
 
 

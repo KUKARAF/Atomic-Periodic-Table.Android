@@ -2,7 +2,7 @@
     <string name="app_name">Atomic</string>
 
     <string name="personalization_settings">Personalization</string>
-    <string name="app_version" translatable="false">v4.3.0m-Build.167</string>
+    <string name="app_version" translatable="false">v4.3.0m-Build.168</string>
     <string name="next_sale_start" translatable="false" >2024/08/05</string>
     <string name="next_sale_end" translatable="false" >2024/09/15</string>
 
@@ -187,7 +187,7 @@
     <string name="customize_units_table">Customize the units in the main table</string>
     <string name="offline_mode">Offline Mode</string>
     <string name="offline_mode_desc">Disables loading of images</string>
-    <string name="go_online_for_emission">Go online for emission lines</string>
+    <string name="go_online_for_emission" translatable="false">Go online for emission lines</string>
     <string name="auto_hide_bottombar">Auto-hide Bottombar</string>
     <string name="auto_hide_bottombar_desc">Disables the standard behaviour</string>
 
@@ -465,6 +465,15 @@
 
     <!-- Additional Pro -->
     <string name="get_pro_element_text">Get PRO-Version to unlock additional information of elements</string>
+    <string name="overview" translatable="false">Overview</string>
+    <string name="properties" translatable="false">Properties</string>
+    <string name="temperatures" translatable="false">Temperatures</string>
+    <string name="atomic_properties" translatable="false">Atomic Properties</string>
+    <string name="electromagnetic_properties" translatable="false">Electromagnetic Properties</string>
+    <string name="thermodynamic_properties" translatable="false">Thermodynamic Properties</string>
+    <string name="nuclear_properties" translatable="false">Nuclear Properties</string>
+    <string name="hardness_properties" translatable="false">Hardness Properties</string>
+    <string name="get_pro_short" translatable="false">PRO</string>
 
 
 </resources>

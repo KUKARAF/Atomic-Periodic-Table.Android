@@ -57,13 +57,15 @@ import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.concurrent.schedule
 
-
 class MainActivity : TableExtension(), ElementAdapter.OnElementClickListener2 {
     private var elementList = ArrayList<Element>()
     var mAdapter = ElementAdapter(elementList, this, this)
 
     // Lifecycle-aware back callback reference
     private var backCallback: OnBackPressedCallback? = null
+
+    // Optional OnBackInvokedCallback for newer platforms (registered only when interception is needed)
+    private var onBackInvokedCb: android.window.OnBackInvokedCallback? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -146,10 +148,10 @@ class MainActivity : TableExtension(), ElementAdapter.OnElementClickListener2 {
                     findViewById<FrameLayout>(R.id.nav_menu_include).visibility = View.GONE
                     Utils.fadeOutAnim(findViewById<TextView>(R.id.nav_background), 100)
                     // Nothing left to intercept: disable callback
-                    backCallback?.isEnabled = false
+                    setBackInterceptionEnabled(false)
                 } else if (newState == PanelState.EXPANDED) {
                     // Panel expanded -> intercept back
-                    backCallback?.isEnabled = true
+                    setBackInterceptionEnabled(true)
                 }
             }
         })
@@ -187,13 +189,13 @@ class MainActivity : TableExtension(), ElementAdapter.OnElementClickListener2 {
         val popupView = findViewById<ConstraintLayout>(R.id.pro_popup_include) ?: return
         Anim.fadeIn(popupView, 300)
         // An overlay is visible — enable our back interceptor
-        backCallback?.isEnabled = true
+        setBackInterceptionEnabled(true)
 
         findViewById<Button>(R.id.popup_action_button)?.setOnClickListener {
             val intent = Intent(this, ProActivity::class.java)
             startActivity(intent)
             // leaving the activity — make sure callback disabled when returning default state
-            backCallback?.isEnabled = false
+            setBackInterceptionEnabled(false)
         }
 
         val suppressPopup: () -> Unit = {
@@ -202,7 +204,7 @@ class MainActivity : TableExtension(), ElementAdapter.OnElementClickListener2 {
             val suppressUntil = now + 30 * 24 * 60 * 60 * 1000L
             prefs.edit().putLong("popup_suppressed_until", suppressUntil).apply()
             // popup closed -> disable callback
-            backCallback?.isEnabled = false
+            setBackInterceptionEnabled(false)
         }
 
         findViewById<Button>(R.id.popup_secondary_button)?.setOnClickListener { suppressPopup() }
@@ -277,14 +279,14 @@ class MainActivity : TableExtension(), ElementAdapter.OnElementClickListener2 {
         Utils.fadeInAnimBack(findViewById<TextView>(R.id.hover_background), 200)
         Utils.fadeInAnim(findViewById<ConstraintLayout>(R.id.hover_menu_include), 300)
         // overlay shown -> intercept back
-        backCallback?.isEnabled = true
+        setBackInterceptionEnabled(true)
     }
 
     private fun closeHover() {
         Utils.fadeOutAnim(findViewById<TextView>(R.id.hover_background), 200)
         Utils.fadeOutAnim(findViewById<ConstraintLayout>(R.id.hover_menu_include), 300)
         // closed -> no interception needed
-        backCallback?.isEnabled = false
+        setBackInterceptionEnabled(false)
     }
 
     private fun filter(text: String, list: ArrayList<Element>, recyclerView: RecyclerView) {
@@ -329,7 +331,7 @@ class MainActivity : TableExtension(), ElementAdapter.OnElementClickListener2 {
         handleBack()
     }
 
-    //Modern back gesture with predictive preview
+    // Modern back gesture with predictive preview
     private fun handleBack() {
         // Cache views we will check/manipulate
         val popupView = findViewById<ConstraintLayout>(R.id.pro_popup_include)
@@ -344,20 +346,6 @@ class MainActivity : TableExtension(), ElementAdapter.OnElementClickListener2 {
         val searchBackground = findViewById<TextView>(R.id.background) // filter overlay background
         val filterBox = findViewById<ConstraintLayout>(R.id.filter_box)
 
-        // Helper: returns true if any UI overlay that needs to intercept back is still visible/open.
-        fun anyOverlayOpen(): Boolean {
-            if (popupView?.visibility == View.VISIBLE) return true
-            if (hoverBackground?.visibility == View.VISIBLE) return true
-            if (hoverMenu?.visibility == View.VISIBLE) return true
-            if (slidingLayout != null && slidingLayout.panelState == PanelState.EXPANDED) return true
-            if (navBackground?.visibility == View.VISIBLE) return true
-            if (navMenuInclude?.visibility == View.VISIBLE) return true
-            if (filterBox?.visibility == View.VISIBLE) return true
-            if (searchBackground?.visibility == View.VISIBLE) return true
-            if (searchMenu?.visibility == View.VISIBLE) return true
-            return false
-        }
-
         // 1) pro popup
         if (popupView?.visibility == View.VISIBLE) {
             Anim.fadeOutAnim(popupView, 300)
@@ -365,8 +353,8 @@ class MainActivity : TableExtension(), ElementAdapter.OnElementClickListener2 {
             val now = System.currentTimeMillis()
             val suppressUntil = now + 30 * 24 * 60 * 60 * 1000L
             prefs.edit().putLong("popup_suppressed_until", suppressUntil).apply()
-            // keep interception only if other overlays remain
-            backCallback?.isEnabled = anyOverlayOpen()
+            // Immediately disable interception so next back goes to system
+            setBackInterceptionEnabled(false)
             return
         }
 
@@ -374,7 +362,8 @@ class MainActivity : TableExtension(), ElementAdapter.OnElementClickListener2 {
         if (hoverBackground?.visibility == View.VISIBLE || hoverMenu?.visibility == View.VISIBLE) {
             if (hoverBackground?.visibility == View.VISIBLE) Utils.fadeOutAnim(hoverBackground, 150)
             if (hoverMenu?.visibility == View.VISIBLE) Utils.fadeOutAnim(hoverMenu, 150)
-            backCallback?.isEnabled = anyOverlayOpen()
+            // Immediately disable interception so next back goes to system
+            setBackInterceptionEnabled(false)
             return
         }
 
@@ -383,8 +372,8 @@ class MainActivity : TableExtension(), ElementAdapter.OnElementClickListener2 {
             slidingLayout.setPanelState(PanelState.COLLAPSED)
             if (navBackground != null) Utils.fadeOutAnim(navBackground, 150)
             navMenuInclude?.visibility = View.GONE
-            // after collapsing, only intercept if other overlays remain
-            backCallback?.isEnabled = anyOverlayOpen()
+            // after collapsing, nothing left to intercept -> disable
+            setBackInterceptionEnabled(false)
             return
         }
         // Also handle scenario where nav background is visible but panel not expanded
@@ -392,7 +381,7 @@ class MainActivity : TableExtension(), ElementAdapter.OnElementClickListener2 {
             slidingLayout?.setPanelState(PanelState.COLLAPSED)
             if (navBackground != null) Utils.fadeOutAnim(navBackground, 150)
             navMenuInclude?.visibility = View.GONE
-            backCallback?.isEnabled = anyOverlayOpen()
+            setBackInterceptionEnabled(false)
             return
         }
 
@@ -401,9 +390,8 @@ class MainActivity : TableExtension(), ElementAdapter.OnElementClickListener2 {
             if (searchBackground?.visibility == View.VISIBLE) Utils.fadeOutAnim(searchBackground, 150)
             if (filterBox?.visibility == View.VISIBLE) Utils.fadeOutAnim(filterBox, 150)
             if (moreBtn != null) Utils.fadeInAnim(moreBtn, 300)
-            // Keep intercepting if the search menu itself is still open (so next back closes search),
-            // otherwise disable interception.
-            backCallback?.isEnabled = anyOverlayOpen()
+            // Keep interception enabled if the search menu (or any other overlay) remains open.
+            setBackInterceptionEnabled(anyOverlayOpen())
             return
         }
 
@@ -425,21 +413,19 @@ class MainActivity : TableExtension(), ElementAdapter.OnElementClickListener2 {
                 }
             }
 
-            // search closed -> disable interception unless another overlay is still open
-            backCallback?.isEnabled = anyOverlayOpen()
+            // Immediately disable interception so next back goes to system
+            setBackInterceptionEnabled(false)
             return
         }
 
         // Nothing special open — let system handle back (homescreen preview will appear when callback disabled)
-        backCallback?.isEnabled = false
+        setBackInterceptionEnabled(false)
         if (isTaskRoot) {
-            // Move to background to mimic expected OS behavior (homescreen preview + backgrounding)
             moveTaskToBack(true)
         } else {
             super.onBackPressed()
         }
     }
-
 
     private fun searchListener() {
         findViewById<ImageButton>(R.id.search_btn).setOnClickListener {
@@ -448,7 +434,7 @@ class MainActivity : TableExtension(), ElementAdapter.OnElementClickListener2 {
             Utils.fadeOutAnim(findViewById<FloatingActionButton>(R.id.more_btn), 300)
 
             // search overlay -> enable interception
-            backCallback?.isEnabled = true
+            setBackInterceptionEnabled(true)
 
             findViewById<EditText>(R.id.edit_element).requestFocus()
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -467,7 +453,7 @@ class MainActivity : TableExtension(), ElementAdapter.OnElementClickListener2 {
             findViewById<FrameLayout>(R.id.nav_bar_main).visibility = View.VISIBLE
 
             // search closed -> disable interception
-            backCallback?.isEnabled = false
+            setBackInterceptionEnabled(false)
 
             val view = this.currentFocus
             if (view != null) {
@@ -504,15 +490,15 @@ class MainActivity : TableExtension(), ElementAdapter.OnElementClickListener2 {
         }
     }
 
-    //Navmenu listeners
+    // Navmenu listeners
     private fun onClickNav() {
-        findViewById<FloatingActionButton>(R.id.menu_btn).setOnClickListener {
+        findViewById<ImageButton>(R.id.menu_btn).setOnClickListener {
             findViewById<FrameLayout>(R.id.nav_menu_include).visibility = View.VISIBLE
             findViewById<TextView>(R.id.nav_background).visibility = View.VISIBLE
             Utils.fadeInAnimBack(findViewById<TextView>(R.id.nav_background), 200)
             findViewById<SlidingUpPanelLayout>(R.id.sliding_layout).panelState = PanelState.EXPANDED
             // nav opened -> intercept back
-            backCallback?.isEnabled = true
+            setBackInterceptionEnabled(true)
         }
         findViewById<TextView>(R.id.nav_background).setOnClickListener {
             findViewById<FrameLayout>(R.id.search_menu_include).visibility = View.GONE
@@ -520,7 +506,7 @@ class MainActivity : TableExtension(), ElementAdapter.OnElementClickListener2 {
             findViewById<FrameLayout>(R.id.nav_bar_main).visibility = View.VISIBLE
             Utils.fadeOutAnim(findViewById<TextView>(R.id.nav_background), 100)
             // nav closed -> disable interception
-            backCallback?.isEnabled = false
+            setBackInterceptionEnabled(false)
         }
         findViewById<TextView>(R.id.pro_btn).setOnClickListener {
             val intent = Intent(this, ProActivity::class.java)
@@ -605,7 +591,7 @@ class MainActivity : TableExtension(), ElementAdapter.OnElementClickListener2 {
 
 
     private fun setupNavListeners() {
-        findViewById<FloatingActionButton>(R.id.settings_btn).setOnClickListener {
+        findViewById<ImageButton>(R.id.settings_btn).setOnClickListener {
             val intent = Intent(this, SettingsActivity::class.java)
             startActivity(intent)
         }
@@ -640,13 +626,14 @@ class MainActivity : TableExtension(), ElementAdapter.OnElementClickListener2 {
             Utils.fadeInAnim(findViewById<ConstraintLayout>(R.id.filter_box), 150)
             Utils.fadeInAnim(findViewById<TextView>(R.id.background), 150)
             // filter overlay shown -> intercept back
-            backCallback?.isEnabled = true
+            setBackInterceptionEnabled(true)
         }
+        // click on filter background should close filter but keep interception if search menu is still open
         findViewById<TextView>(R.id.background).setOnClickListener {
             Utils.fadeOutAnim(findViewById<ConstraintLayout>(R.id.filter_box), 150)
             Utils.fadeOutAnim(findViewById<TextView>(R.id.background), 150)
-            // filter closed -> no interception
-            backCallback?.isEnabled = false
+            // filter closed -> keep interception if other overlays (like search menu) remain open
+            setBackInterceptionEnabled(anyOverlayOpen())
         }
         findViewById<TextView>(R.id.elmt_numb_btn2).setOnClickListener {
             val searchPreference = SearchPreferences(this)
@@ -658,8 +645,8 @@ class MainActivity : TableExtension(), ElementAdapter.OnElementClickListener2 {
             }
             Utils.fadeOutAnim(findViewById<ConstraintLayout>(R.id.filter_box), 150)
             Utils.fadeOutAnim(findViewById<TextView>(R.id.background), 150)
-            // filter closed -> no interception
-            backCallback?.isEnabled = false
+            // filter closed -> keep interception if other overlays remain (e.g. search menu)
+            setBackInterceptionEnabled(anyOverlayOpen())
             mAdapter.filterList(filtList)
             mAdapter.notifyDataSetChanged()
             recyclerView.adapter = ElementAdapter(filtList, this, this)
@@ -674,8 +661,8 @@ class MainActivity : TableExtension(), ElementAdapter.OnElementClickListener2 {
             }
             Utils.fadeOutAnim(findViewById<ConstraintLayout>(R.id.filter_box), 150)
             Utils.fadeOutAnim(findViewById<TextView>(R.id.background), 150)
-            // filter closed -> no interception
-            backCallback?.isEnabled = false
+            // filter closed -> keep interception if other overlays remain
+            setBackInterceptionEnabled(anyOverlayOpen())
             mAdapter.filterList(filtList)
             mAdapter.notifyDataSetChanged()
             recyclerView.adapter = ElementAdapter(filtList, this, this)
@@ -690,8 +677,8 @@ class MainActivity : TableExtension(), ElementAdapter.OnElementClickListener2 {
             }
             Utils.fadeOutAnim(findViewById<ConstraintLayout>(R.id.filter_box), 150)
             Utils.fadeOutAnim(findViewById<TextView>(R.id.background), 150)
-            // filter closed -> no interception
-            backCallback?.isEnabled = false
+            // filter closed -> keep interception if other overlays remain
+            setBackInterceptionEnabled(anyOverlayOpen())
             filtList.sortWith(Comparator { lhs, rhs ->
                 lhs.element.compareTo(rhs.element)
             })
@@ -812,10 +799,75 @@ class MainActivity : TableExtension(), ElementAdapter.OnElementClickListener2 {
         achievement8?.incrementProgress(this, 1)
     }
 
+    // Helper: returns true if any UI overlay that needs to intercept back is still visible/open.
+    private fun anyOverlayOpen(): Boolean {
+        val popupView = findViewById<ConstraintLayout>(R.id.pro_popup_include)
+        val hoverBackground = findViewById<TextView>(R.id.hover_background)
+        val hoverMenu = findViewById<ConstraintLayout>(R.id.hover_menu_include)
+        val slidingLayout = findViewById<SlidingUpPanelLayout>(R.id.sliding_layout)
+        val navBackground = findViewById<TextView>(R.id.nav_background)
+        val navMenuInclude = findViewById<FrameLayout>(R.id.nav_menu_include)
+        val searchMenu = findViewById<FrameLayout>(R.id.search_menu_include)
+        val searchBackground = findViewById<TextView>(R.id.background)
+        val filterBox = findViewById<ConstraintLayout>(R.id.filter_box)
+
+        if (popupView?.visibility == View.VISIBLE) return true
+        if (hoverBackground?.visibility == View.VISIBLE) return true
+        if (hoverMenu?.visibility == View.VISIBLE) return true
+        if (slidingLayout != null && slidingLayout.panelState == PanelState.EXPANDED) return true
+        if (navBackground?.visibility == View.VISIBLE) return true
+        if (navMenuInclude?.visibility == View.VISIBLE) return true
+        if (filterBox?.visibility == View.VISIBLE) return true
+        if (searchBackground?.visibility == View.VISIBLE) return true
+        if (searchMenu?.visibility == View.VISIBLE) return true
+        return false
+    }
+
+    // Centralized enabling/disabling of back interception; also registers/unregisters platform callback on newer OS.
+    private fun setBackInterceptionEnabled(enabled: Boolean) {
+        backCallback?.isEnabled = enabled
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            if (enabled) {
+                if (onBackInvokedCb == null) {
+                    onBackInvokedCb = android.window.OnBackInvokedCallback {
+                        // Mirror handleOnBackPressed behaviour for platform back invocation
+                        handleBack()
+                        // keep registered only if overlays remain
+                        if (!anyOverlayOpen()) {
+                            try {
+                                onBackInvokedDispatcher.unregisterOnBackInvokedCallback(onBackInvokedCb!!)
+                            } catch (_: Exception) { }
+                            onBackInvokedCb = null
+                            backCallback?.isEnabled = false
+                        }
+                    }
+                    onBackInvokedDispatcher.registerOnBackInvokedCallback(
+                        android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT,
+                        onBackInvokedCb!!
+                    )
+                }
+            } else {
+                if (onBackInvokedCb != null) {
+                    try {
+                        onBackInvokedDispatcher.unregisterOnBackInvokedCallback(onBackInvokedCb!!)
+                    } catch (_: Exception) { }
+                    onBackInvokedCb = null
+                }
+            }
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         // Remove callback
         backCallback?.remove()
         backCallback = null
+        if (onBackInvokedCb != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            try {
+                onBackInvokedDispatcher.unregisterOnBackInvokedCallback(onBackInvokedCb!!)
+            } catch (_: Exception) { }
+            onBackInvokedCb = null
+        }
     }
 }

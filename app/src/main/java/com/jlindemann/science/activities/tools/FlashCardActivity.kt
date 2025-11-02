@@ -1,9 +1,9 @@
 package com.jlindemann.science.activities.tools
 
 import GameResultItem
-import android.app.AlertDialog
 import android.content.Intent
 import android.content.res.Configuration
+import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.view.ViewGroup
@@ -17,6 +17,7 @@ import com.jlindemann.science.util.XpManager
 import java.util.concurrent.TimeUnit
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
+import android.app.AlertDialog
 import android.view.LayoutInflater
 import android.view.Gravity
 import android.graphics.Rect
@@ -24,6 +25,7 @@ import android.os.Handler
 import android.os.Looper
 import android.view.WindowManager
 import android.widget.PopupWindow
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.widget.AppCompatButton
 import com.jlindemann.science.activities.UserActivity
 import com.jlindemann.science.activities.settings.ProActivity
@@ -38,6 +40,50 @@ class FlashCardActivity : BaseActivity() {
     private lateinit var infoText: TextView
     private var resultDialog: ResultDialogFragment? = null
     private var lastLevel: Int = -1
+
+    // Back gesture handling
+    private var backCallback: OnBackPressedCallback? = null
+    private var onBackInvokedCb: android.window.OnBackInvokedCallback? = null
+
+    // Keep reference to lives info popup so we can dismiss it on back
+    private var livesPopupWindow: PopupWindow? = null
+    private var livesPopupView: View? = null
+
+    // Polling for dynamic lives updates while activity is visible
+    private val uiHandler = Handler(Looper.getMainLooper())
+    private var cachedLives: Int = -1
+    private var livesPolling = false
+    private val LIVES_POLL_INTERVAL_MS = 1000L // poll every second
+
+    private val livesPollRunnable = object : Runnable {
+        override fun run() {
+            // Attempt to apply any pending refills first
+            val refilled = LivesManager.refillLivesIfNeeded(this@FlashCardActivity)
+            // Get current lives after refill attempt
+            val currentLives = LivesManager.getLives(this@FlashCardActivity)
+            val livesChanged = currentLives != cachedLives
+
+            // Always update the countdown/info text so timer ticks down every second,
+            // but only update count/boxes when the numeric value changed.
+            if (livesChanged || refilled) {
+                cachedLives = currentLives
+                updateLivesCount()
+                updateCategoryBoxes()
+            }
+            // updateinfo (countdown text) every poll so user sees timer tick
+            updateLivesInfo()
+
+            // Update popup contents in-place if popup visible
+            if (livesPopupWindow?.isShowing == true && livesPopupView != null) {
+                updateLivesPopupView(livesPopupView!!)
+            }
+
+            // Schedule next poll if still enabled
+            if (livesPolling) {
+                uiHandler.postDelayed(this, LIVES_POLL_INTERVAL_MS)
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -139,6 +185,27 @@ class FlashCardActivity : BaseActivity() {
         livesCountView.setOnClickListener {
             showLivesInfoPopup(livesCountView)
         }
+
+        // Register lifecycle-aware OnBackPressedCallback in DISABLED state.
+        // We'll enable interception only when an overlay (result dialog or lives popup) is visible.
+        backCallback = object : OnBackPressedCallback(false) {
+            override fun handleOnBackPressed() {
+                val consumed = handleBackPress()
+                backCallback?.isEnabled = anyOverlayOpen()
+            }
+        }
+        onBackPressedDispatcher.addCallback(this, backCallback!!)
+
+        // Ensure we are aware when the result dialog is destroyed so interception is cleared.
+        supportFragmentManager.registerFragmentLifecycleCallbacks(object : androidx.fragment.app.FragmentManager.FragmentLifecycleCallbacks() {
+            override fun onFragmentDestroyed(fm: androidx.fragment.app.FragmentManager, f: androidx.fragment.app.Fragment) {
+                super.onFragmentDestroyed(fm, f)
+                if (f is ResultDialogFragment) {
+                    // result dialog dismissed -> update interception
+                    setBackInterceptionEnabled(anyOverlayOpen())
+                }
+            }
+        }, true)
     }
 
     //For updating when user purschases PRO Version in ProActivity
@@ -154,6 +221,11 @@ class FlashCardActivity : BaseActivity() {
 
     override fun onResume() {
         super.onResume()
+        // Ensure stored lives are applied on resume immediately
+        LivesManager.refillLivesIfNeeded(this)
+
+        // initialize cached value and update UI once
+        cachedLives = LivesManager.getLives(this)
         updateLivesCount()
         updateLivesInfo()
         updateCategoryBoxes()
@@ -171,6 +243,26 @@ class FlashCardActivity : BaseActivity() {
             intent.removeExtra("difficulty")
         }
         showLevelUpPopupIfNeeded()
+
+        // Start live polls so UI updates dynamically
+        startLivesPolling()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        // stop polling while activity is not in foreground
+        stopLivesPolling()
+    }
+
+    private fun startLivesPolling() {
+        if (livesPolling) return
+        livesPolling = true
+        uiHandler.post(livesPollRunnable)
+    }
+
+    private fun stopLivesPolling() {
+        livesPolling = false
+        uiHandler.removeCallbacks(livesPollRunnable)
     }
 
     private fun showLevelUpPopupIfNeeded() {
@@ -365,7 +457,8 @@ class FlashCardActivity : BaseActivity() {
             val millis = LivesManager.getMillisToRefill(this)
             val hours = TimeUnit.MILLISECONDS.toHours(millis)
             val minutes = TimeUnit.MILLISECONDS.toMinutes(millis) % 60
-            infoText.text = "Out of lives! More lives in $hours hours and $minutes minutes."
+            val seconds = TimeUnit.MILLISECONDS.toSeconds(millis) % 60
+            infoText.text = "Out of lives! More lives in $minutes minutes and $seconds seconds."
         } else {
             infoText.visibility = View.GONE
         }
@@ -391,14 +484,10 @@ class FlashCardActivity : BaseActivity() {
     }
 
     override fun onBackPressed() {
-        super.onBackPressed()
-        resultDialog?.let {
-            if (it.isVisible) {
-                it.dismiss()
-                return
-            }
+        // Try to handle overlays first; if not consumed, allow system/back behaviour
+        if (!handleBackPress()) {
+            super.onBackPressed()
         }
-        finish()
     }
 
     private fun showGameResultsPopup(
@@ -411,6 +500,9 @@ class FlashCardActivity : BaseActivity() {
         resultDialog = ResultDialogFragment.newInstance(results, gameFinished, totalQuestions, difficulty)
         resultDialog?.show(supportFragmentManager, "GameResultsPopup")
         updateXpAndLevelStats()
+
+        // result dialog shown -> intercept back gestures while it's visible
+        setBackInterceptionEnabled(true)
     }
 
     private fun getCompletedQuizzes(): Int {
@@ -533,6 +625,48 @@ class FlashCardActivity : BaseActivity() {
         val inflater = LayoutInflater.from(this)
         val popupView = inflater.inflate(R.layout.popup_lives_info, null)
 
+        // Ensure we apply any pending refills before showing UI
+        LivesManager.refillLivesIfNeeded(this)
+
+        // Save popupView reference so we can update it while visible
+        livesPopupView = popupView
+
+        // Initialize popup contents
+        updateLivesPopupView(popupView)
+
+        // Close any existing popup first
+        livesPopupWindow?.dismiss()
+
+        val popupWindow = PopupWindow(
+            popupView,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            true
+        )
+        popupWindow.elevation = 8f
+        livesPopupWindow = popupWindow
+
+        val location = IntArray(2)
+        anchor.getLocationOnScreen(location)
+        popupWindow.showAtLocation(anchor, Gravity.NO_GRAVITY, location[0], location[1] + anchor.height)
+
+        // When popup is showing we should intercept back gestures so the popup can be closed first.
+        setBackInterceptionEnabled(true)
+
+        popupWindow.setOnDismissListener {
+            // update interception state when popup dismissed
+            setBackInterceptionEnabled(anyOverlayOpen())
+            livesPopupWindow = null
+            livesPopupView = null
+        }
+
+        // Auto-dismiss after 3s
+        Handler(Looper.getMainLooper()).postDelayed({
+            if (popupWindow.isShowing) popupWindow.dismiss()
+        }, 3000)
+    }
+
+    private fun updateLivesPopupView(popupView: View) {
         val lives = LivesManager.getLives(this)
         val millis = LivesManager.getMillisToRefill(this)
         val maxLives = LivesManager.getMaxLives(this)
@@ -546,21 +680,87 @@ class FlashCardActivity : BaseActivity() {
         } else {
             livesText.text = "Next life in $minutes minutes and $seconds seconds.\nYou will gain $refillAmount life${if (refillAmount > 1) "s" else ""}."
         }
+    }
 
-        val popupWindow = PopupWindow(
-            popupView,
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            true
-        )
-        popupWindow.elevation = 8f
+    // Helper: returns true if any overlay that should intercept back is visible
+    private fun anyOverlayOpen(): Boolean {
+        val dialogVisible = resultDialog?.isVisible == true
+        val popupVisible = livesPopupWindow?.isShowing == true
+        return dialogVisible || popupVisible
+    }
 
-        val location = IntArray(2)
-        anchor.getLocationOnScreen(location)
-        popupWindow.showAtLocation(anchor, Gravity.NO_GRAVITY, location[0], location[1] + anchor.height)
+    // Centralized enabling/disabling of back interception; also registers/unregisters platform callback on newer OS.
+    private fun setBackInterceptionEnabled(enabled: Boolean) {
+        backCallback?.isEnabled = enabled
 
-        Handler(Looper.getMainLooper()).postDelayed({
-            if (popupWindow.isShowing) popupWindow.dismiss()
-        }, 3000)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            if (enabled) {
+                if (onBackInvokedCb == null) {
+                    onBackInvokedCb = android.window.OnBackInvokedCallback {
+                        // Mirror the OnBackPressedCallback behavior
+                        handleBackPress()
+                        // keep registered only if overlays remain
+                        if (!anyOverlayOpen()) {
+                            try {
+                                onBackInvokedDispatcher.unregisterOnBackInvokedCallback(onBackInvokedCb!!)
+                            } catch (_: Exception) { }
+                            onBackInvokedCb = null
+                            backCallback?.isEnabled = false
+                        }
+                    }
+                    onBackInvokedDispatcher.registerOnBackInvokedCallback(
+                        android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT,
+                        onBackInvokedCb!!
+                    )
+                }
+            } else {
+                if (onBackInvokedCb != null) {
+                    try {
+                        onBackInvokedDispatcher.unregisterOnBackInvokedCallback(onBackInvokedCb!!)
+                    } catch (_: Exception) { }
+                    onBackInvokedCb = null
+                }
+            }
+        }
+    }
+
+    // Close overlays (result dialog or lives popup) if visible; return true when consumed
+    private fun handleBackPress(): Boolean {
+        // If result dialog visible, dismiss it
+        if (resultDialog?.isVisible == true) {
+            resultDialog?.dismiss()
+            // update interception state after dismissal
+            setBackInterceptionEnabled(anyOverlayOpen())
+            return true
+        }
+
+        // If lives popup visible, dismiss it
+        if (livesPopupWindow?.isShowing == true) {
+            livesPopupWindow?.dismiss()
+            // setBackInterceptionEnabled will be called by popup's dismiss listener, but do it here too
+            setBackInterceptionEnabled(anyOverlayOpen())
+            return true
+        }
+
+        return false
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // Ensure cleanup of back interception hooks
+        backCallback?.remove()
+        backCallback = null
+        if (onBackInvokedCb != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            try {
+                onBackInvokedDispatcher.unregisterOnBackInvokedCallback(onBackInvokedCb!!)
+            } catch (_: Exception) { }
+            onBackInvokedCb = null
+        }
+        // Dismiss popup if still present
+        livesPopupWindow?.dismiss()
+        livesPopupWindow = null
+
+        // stop polling
+        stopLivesPolling()
     }
 }

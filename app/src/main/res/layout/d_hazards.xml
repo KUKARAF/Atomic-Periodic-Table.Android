@@ -11,7 +11,7 @@
         android:elevation="10dp"
         android:background="?attr/backgroundColor"
         android:layout_width="match_parent"
-        android:visibility="visible"
+        android:visibility="gone"
         android:layout_height="match_parent">
 
         <LinearLayout
@@ -94,32 +94,54 @@
         android:id="@+id/hazard_properties"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_marginTop="8dp"
         android:layout_marginBottom="8dp"
-        android:visibility="gone"
+        android:visibility="visible"
         android:elevation="2dp"
         android:orientation="vertical">
 
-        <TextView
+        <!-- Container with center icon -->
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="18dp"
-            android:layout_marginTop="9dp"
-            android:layout_marginEnd="18dp"
-            android:layout_marginBottom="9dp"
-            android:drawableStart="@drawable/ic_health"
-            android:drawablePadding="9dp"
-            android:drawableTint="?attr/colorPrimary"
-            android:text="@string/hazard_title"
-            android:textColor="?attr/colorPrimary"
-            android:textSize="20sp"
-            android:textStyle="bold" />
+            android:layout_marginStart="12dp"
+            android:layout_marginTop="16dp"
+            android:layout_marginEnd="12dp"
+            android:layout_marginBottom="4dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:alpha="0.75"
-            android:background="?attr/colorOnSecondaryContainer" />
+            <!-- Container with center icon -->
+            <FrameLayout
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="@drawable/cookie_7"
+                android:backgroundTint="?attr/colorAccent"
+                android:layout_gravity="center_vertical"
+                android:foregroundGravity="center">
+
+                <ImageView
+                    android:id="@+id/overview_icon"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/ic_hazard"
+                    android:adjustViewBounds="true"
+                    android:scaleType="centerInside"
+                    app:tint="?attr/colorOnPrimary" />
+            </FrameLayout>
+
+            <TextView
+                android:id="@+id/overview_text"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_marginStart="2dp"
+                android:layout_weight="1"
+                android:gravity="center_vertical"
+                android:text="@string/hazard_title"
+                android:textColor="?attr/colorAccent"
+                android:textSize="22sp"
+                android:textStyle="bold" />
+        </LinearLayout>
         
         <LinearLayout
             android:layout_width="match_parent"
@@ -132,14 +154,20 @@
                 android:orientation="vertical"
                 android:layout_height="wrap_content">
 
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginEnd="4dp"
+                    android:orientation="vertical"
+                    android:padding="10dp"
+                    android:background="@drawable/toast_element_list_top"
+                    android:backgroundTint="?attr/colorPrimaryDark">
+
                 <TextView
                     android:id="@+id/fire_hazard_title"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="18dp"
-                    android:layout_marginTop="8dp"
-                    android:layout_marginEnd="4dp"
-                    android:layout_marginBottom="2dp"
                     android:text="@string/fire_hazard"
                     android:textColor="?attr/colorOnSecondaryContainer"
                     android:textSize="14sp"
@@ -149,31 +177,27 @@
                     android:id="@+id/fire_hazard_text"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="18dp"
-                    android:layout_marginTop="2dp"
-                    android:layout_marginEnd="4dp"
-                    android:layout_marginBottom="8dp"
                     android:text="fire_hazard_text"
                     android:textIsSelectable="true"
                     android:textColor="?attr/colorOnSecondaryContainer"
                     android:textSize="14sp" />
+                </LinearLayout>
 
-                <TextView
+                <LinearLayout
                     android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:layout_marginStart="18dp"
-                    android:layout_marginEnd="18dp"
-                    android:alpha="0.25"
-                    android:background="?attr/colorOnSecondaryContainer" />
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginEnd="4dp"
+                    android:orientation="vertical"
+                    android:padding="10dp"
+                    android:background="@drawable/toast_element_list"
+                    android:backgroundTint="?attr/colorPrimaryDark">
 
                 <TextView
                     android:id="@+id/health_hazard_title"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="18dp"
-                    android:layout_marginTop="8dp"
-                    android:layout_marginEnd="4dp"
-                    android:layout_marginBottom="2dp"
                     android:text="@string/health_hazard"
                     android:textColor="?attr/colorOnSecondaryContainer"
                     android:textSize="14sp"
@@ -183,31 +207,27 @@
                     android:id="@+id/health_hazard_text"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="18dp"
-                    android:layout_marginTop="2dp"
-                    android:layout_marginEnd="4dp"
-                    android:layout_marginBottom="8dp"
                     android:text="health_hazard_text"
                     android:textIsSelectable="true"
                     android:textColor="?attr/colorOnSecondaryContainer"
                     android:textSize="14sp" />
+                </LinearLayout>
 
-                <TextView
+                <LinearLayout
                     android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:layout_marginStart="18dp"
-                    android:layout_marginEnd="18dp"
-                    android:alpha="0.25"
-                    android:background="?attr/colorOnSecondaryContainer" />
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginEnd="4dp"
+                    android:orientation="vertical"
+                    android:padding="10dp"
+                    android:background="@drawable/toast_element_list"
+                    android:backgroundTint="?attr/colorPrimaryDark">
 
                 <TextView
                     android:id="@+id/reactivity_hazard_title"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="18dp"
-                    android:layout_marginTop="8dp"
-                    android:layout_marginEnd="4dp"
-                    android:layout_marginBottom="2dp"
                     android:text="@string/reactivity_hazard"
                     android:textColor="?attr/colorOnSecondaryContainer"
                     android:textSize="14sp"
@@ -217,31 +237,27 @@
                     android:id="@+id/reactivity_hazard_text"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="18dp"
-                    android:layout_marginTop="2dp"
-                    android:layout_marginEnd="4dp"
-                    android:layout_marginBottom="8dp"
                     android:text="reactivity_hazard_text"
                     android:textIsSelectable="true"
                     android:textColor="?attr/colorOnSecondaryContainer"
                     android:textSize="14sp" />
+                </LinearLayout>
 
-                <TextView
+                <LinearLayout
                     android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:layout_marginStart="18dp"
-                    android:layout_marginEnd="18dp"
-                    android:alpha="0.25"
-                    android:background="?attr/colorOnSecondaryContainer" />
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginEnd="4dp"
+                    android:orientation="vertical"
+                    android:padding="10dp"
+                    android:background="@drawable/toast_element_list_bottom"
+                    android:backgroundTint="?attr/colorPrimaryDark">
 
                 <TextView
                     android:id="@+id/specific_hazard_title"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="18dp"
-                    android:layout_marginTop="8dp"
-                    android:layout_marginEnd="4dp"
-                    android:layout_marginBottom="2dp"
                     android:text="@string/specific_hazard"
                     android:textColor="?attr/colorOnSecondaryContainer"
                     android:textSize="14sp"
@@ -251,16 +267,20 @@
                     android:id="@+id/specific_hazard_text"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="18dp"
-                    android:layout_marginTop="2dp"
-                    android:layout_marginEnd="4dp"
-                    android:layout_marginBottom="8dp"
                     android:text="specific_hazard_text"
                     android:textIsSelectable="true"
                     android:textColor="?attr/colorOnSecondaryContainer"
                     android:textSize="14sp" />
+                </LinearLayout>
                 
             </LinearLayout>
+
+            <FrameLayout
+                android:layout_width="140dp"
+                android:layout_height="match_parent"
+                android:layout_marginEnd="12dp"
+                android:background="@drawable/toast_element"
+                android:backgroundTint="?attr/colorPrimaryDark">
 
             <FrameLayout
                 android:layout_width="140dp"
@@ -366,6 +386,7 @@
                 </FrameLayout>
             </FrameLayout>
 
+            </FrameLayout>
             </FrameLayout>
 
         </LinearLayout>

@@ -4,22 +4,27 @@ import GameResultItem
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
+import android.app.AlertDialog
 import android.content.Intent
 import android.graphics.Color
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.View
 import android.view.ViewGroup
 import android.widget.*
+import androidx.activity.OnBackPressedCallback
 import com.jlindemann.science.R
 import com.jlindemann.science.activities.BaseActivity
+import com.jlindemann.science.activities.tools.FlashCardActivity
 import com.jlindemann.science.model.Achievement
 import com.jlindemann.science.model.AchievementModel
 import com.jlindemann.science.util.LivesManager
 import com.jlindemann.science.util.XpManager
 import com.jlindemann.science.views.AnimatedEffectView
 import org.json.JSONArray
+import java.io.IOException
 import kotlin.math.roundToInt
 
 class LearningGamesActivity : BaseActivity() {
@@ -41,6 +46,10 @@ class LearningGamesActivity : BaseActivity() {
 
     // Results tracking
     private val gameResults = mutableListOf<GameResultItem>()
+
+    // Lifecycle-aware back callback and optional platform back-invoked callback
+    private var backCallback: OnBackPressedCallback? = null
+    private var onBackInvokedCb: android.window.OnBackInvokedCallback? = null
 
     data class Question(
         val question: String,
@@ -82,6 +91,28 @@ class LearningGamesActivity : BaseActivity() {
         setupAnswerListeners()
         setupBackButton()
 
+        // Register lifecycle-aware OnBackPressedCallback.
+        // For this activity we want to intercept back gestures (show exit dialog) while the quiz is running,
+        // so we enable the callback by default.
+        backCallback = object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                // If any in-activity overlay consumes back (e.g. result card), let that handle it first.
+                val consumed = handleBackPress()
+                if (!consumed) {
+                    // No overlay consumed it -> show exit confirmation dialog
+                    showExitConfirmationDialog()
+                } else {
+                    // If overlays remain, keep interception enabled, otherwise allow system later
+                    backCallback?.isEnabled = anyOverlayOpen() || !hasLeftGame
+                }
+            }
+        }
+        onBackPressedDispatcher.addCallback(this, backCallback!!)
+
+        // Also register the platform OnBackInvoked callback on supported platforms so gestures invoke our logic.
+        // Use the central helper to ensure symmetric behavior on Android 14+.
+        setBackInterceptionEnabled(true)
+
         // Setup background effect view
         val effectOverlay = findViewById<FrameLayout>(R.id.effect_overlay)
         animatedEffectView = AnimatedEffectView(this)
@@ -120,25 +151,41 @@ class LearningGamesActivity : BaseActivity() {
     }
 
     override fun onBackPressed() {
+        // Ensure hardware back shows the exit dialog (or closes overlays first)
         showExitConfirmationDialog()
     }
 
     private fun showExitConfirmationDialog() {
         if (leaveDialogShowing || hasLeftGame) return
         leaveDialogShowing = true
-        android.app.AlertDialog.Builder(this)
+
+        // When showing dialog, ensure we intercept back/gestures so dialog can be handled here.
+        setBackInterceptionEnabled(true)
+
+        val dialog = AlertDialog.Builder(this)
             .setTitle("Leave Game?")
             .setMessage("Are you sure you want to leave the game? You will lose 5 lives.")
             .setPositiveButton("Leave") { _, _ ->
                 leaveDialogShowing = false
+                // dialog dismissed -> update interception then process leaving
+                setBackInterceptionEnabled(anyOverlayOpen())
                 leaveGameAndLoseLives()
             }
-            .setNegativeButton("Stay") { dialog, _ ->
+            .setNegativeButton("Stay") { dialogInterface, _ ->
                 leaveDialogShowing = false
-                dialog.dismiss()
+                dialogInterface.dismiss()
+                setBackInterceptionEnabled(anyOverlayOpen())
             }
             .setCancelable(false)
-            .show()
+            .create()
+
+        dialog.setOnDismissListener {
+            // Make sure state updated after dialog disappears for any reason
+            leaveDialogShowing = false
+            setBackInterceptionEnabled(anyOverlayOpen())
+        }
+
+        dialog.show()
     }
 
     private fun leaveGameAndLoseLives() {
@@ -190,7 +237,7 @@ class LearningGamesActivity : BaseActivity() {
                 progressBar.progress = va.animatedValue as Int
             }
             addListener(object : AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: Animator) {
+                override fun onAnimationEnd(animation: android.animation.Animator) {
                     if (isAnswering && !hasLeftGame) {
                         isAnswering = false
                         checkAnswer("__TIMEOUT__")
@@ -220,7 +267,6 @@ class LearningGamesActivity : BaseActivity() {
             findViewById<LinearLayout>(R.id.answer_3).visibility = View.VISIBLE
             findViewById<LinearLayout>(R.id.answer_4).visibility = View.VISIBLE
         }
-
 
         grid.animate().alpha(1f).setDuration(300).start()
         progressBar.animate().alpha(1f).setDuration(300).start()
@@ -265,7 +311,7 @@ class LearningGamesActivity : BaseActivity() {
         "crystal_structure" -> 40
         "superconducting_point" -> 50
         "neutron_cross_sectional" -> 50
-        "specific heat capacity" -> 50
+        "specific_heat_capacity" -> 50
         "mohs_hardness" -> 60
         "vickers_hardness" -> 60
         "brinell_hardness" -> 60
@@ -429,10 +475,15 @@ class LearningGamesActivity : BaseActivity() {
             resultText.text = "Wrong"
             resultSubtext.text = if (livesLost == 1) "Lost 1 life" else "Lost $livesLost lives"
         }
+
+        // When result card is shown, we must intercept back so the user closes the card first
+        setBackInterceptionEnabled(true)
     }
 
     private fun hideResultCard() {
         findViewById<FrameLayout>(R.id.result_card_overlay).visibility = View.GONE
+        // After hiding, update interception state; if nothing else open we disable so gestures go to system
+        setBackInterceptionEnabled(anyOverlayOpen())
     }
 
     // Normalization function to canonicalize labels and answers
@@ -809,8 +860,75 @@ class LearningGamesActivity : BaseActivity() {
             .start()
     }
 
+    // Helper: returns true if any overlay that should intercept back is visible
+    private fun anyOverlayOpen(): Boolean {
+        val resultCard = findViewById<FrameLayout?>(R.id.result_card_overlay)
+        return leaveDialogShowing || (resultCard?.visibility == View.VISIBLE)
+    }
+
+    private fun setBackInterceptionEnabled(enabled: Boolean) {
+        backCallback?.isEnabled = enabled
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            if (enabled) {
+                if (onBackInvokedCb == null) {
+                    // Register a platform callback that forwards to the OnBackPressedDispatcher,
+                    // ensuring gestures and hardware back behave identically.
+                    onBackInvokedCb = android.window.OnBackInvokedCallback {
+                        handler.post {
+                            // Trigger the OnBackPressedDispatcher which will call your existing
+                            // OnBackPressedCallback (that shows the leave dialog / dismisses overlays).
+                            try {
+                                onBackPressedDispatcher.onBackPressed()
+                            } catch (e: Exception) {
+                                // Fallback: directly mirror behavior if dispatcher fails for any reason
+                                val consumed = handleBackPress()
+                                if (!consumed) showExitConfirmationDialog()
+                            }
+                        }
+                    }
+                    onBackInvokedDispatcher.registerOnBackInvokedCallback(
+                        android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT,
+                        onBackInvokedCb!!
+                    )
+                }
+            } else {
+                if (onBackInvokedCb != null) {
+                    try {
+                        onBackInvokedDispatcher.unregisterOnBackInvokedCallback(onBackInvokedCb!!)
+                    } catch (_: Exception) { }
+                    onBackInvokedCb = null
+                }
+            }
+        }
+    }
+
+    // Close overlays (dialog or result card) if visible; return true when consumed
+    private fun handleBackPress(): Boolean {
+        val resultCard = findViewById<FrameLayout>(R.id.result_card_overlay)
+        if (leaveDialogShowing) {
+            // If the leave dialog is showing, dismiss by toggling flag and let dialog listeners handle actual leaving.
+            leaveDialogShowing = false
+            setBackInterceptionEnabled(anyOverlayOpen())
+            return true
+        }
+        if (resultCard.visibility == View.VISIBLE) {
+            hideResultCard()
+            return true
+        }
+        return false
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         cleanupPending()
+        backCallback?.remove()
+        backCallback = null
+        if (onBackInvokedCb != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            try {
+                onBackInvokedDispatcher.unregisterOnBackInvokedCallback(onBackInvokedCb!!)
+            } catch (_: Exception) { }
+            onBackInvokedCb = null
+        }
     }
 }
