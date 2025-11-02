@@ -42,6 +42,12 @@ class SettingsActivity : BaseActivity() {
             if (englishName == nativeName) englishName else "$englishName ($nativeName)"
     }
 
+    // Lifecycle-aware OnBackPressedCallback (starts DISABLED)
+    private var backCallback: OnBackPressedCallback? = null
+
+    // Optional OnBackInvokedCallback for newer platforms (registered only when interception is needed)
+    private var onBackInvokedCb: android.window.OnBackInvokedCallback? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val themePreference = ThemePreference(this)
@@ -160,37 +166,69 @@ class SettingsActivity : BaseActivity() {
             TabUtil.openCustomTab(winURL, packageManager, this)
         }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            val backCallback = object : OnBackPressedCallback(true) {
-                override fun handleOnBackPressed() {
-                    if (handleBackPress()) {
-                        // We consumed the back press (closed the panel), do nothing
-                    } else {
-                        remove() // Remove callback so system handles back normally
-                        onBackPressedDispatcher.onBackPressed()
-                    }
-                }
-            }
-            onBackPressedDispatcher.addCallback(this, backCallback)
-
-            // Predictive Back Gesture for Android 14+ (UPSIDEDOWN_CAKE)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                onBackInvokedDispatcher.registerOnBackInvokedCallback(
-                    OnBackInvokedDispatcher.PRIORITY_DEFAULT
-                ) {
-                    if (!handleBackPress()) {
-                        // Do not consume, allow predictive back to show previous activity preview
-                        finish()
-                    }
-                }
+        // Register a lifecycle-aware OnBackPressedCallback in DISABLED state.
+        // We'll enable interception only when overlays (theme panel) are visible.
+        backCallback = object : OnBackPressedCallback(false) {
+            override fun handleOnBackPressed() {
+                // Close overlays if any; after handling, keep interception enabled only if overlays remain.
+                handleBackPress()
+                backCallback?.isEnabled = anyOverlayOpen()
             }
         }
+        onBackPressedDispatcher.addCallback(this, backCallback!!)
+
+        // Note: For predictive back (Android 14+), we only register the OnBackInvoked callback while
+        // interception is needed (so the system can show the home/preview animation when no interception).
+        // The setBackInterceptionEnabled() helper below will manage this dynamically.
 
         // --- Language selection setup ---
         findViewById<RelativeLayout>(R.id.language_setting).setOnClickListener {
             showLanguageSelectionDialog()
         }
         updateLanguageContentText()
+    }
+
+    // helper to detect overlays currently visible
+    private fun anyOverlayOpen(): Boolean {
+        val themePanel = findViewById<FrameLayout?>(R.id.theme_panel)
+        return themePanel?.visibility == View.VISIBLE
+    }
+
+    // Toggle interception: enable/disable OnBackPressedCallback and register/unregister OnBackInvokedCallback on newer OS
+    private fun setBackInterceptionEnabled(enabled: Boolean) {
+        backCallback?.isEnabled = enabled
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            if (enabled) {
+                if (onBackInvokedCb == null) {
+                    onBackInvokedCb = android.window.OnBackInvokedCallback {
+                        // Mirror handleOnBackPressed behaviour for platform back invocation
+                        handleBackPress()
+                        // keep registered only if overlays remain
+                        if (!anyOverlayOpen()) {
+                            // unregister ourselves to allow system preview for subsequent gestures
+                            onBackInvokedDispatcher.unregisterOnBackInvokedCallback(onBackInvokedCb!!)
+                            onBackInvokedCb = null
+                            // ensure dispatcher-level OnBackPressedCallback also disabled
+                            backCallback?.isEnabled = false
+                        }
+                    }
+                    onBackInvokedDispatcher.registerOnBackInvokedCallback(
+                        OnBackInvokedDispatcher.PRIORITY_DEFAULT,
+                        onBackInvokedCb!!
+                    )
+                }
+            } else {
+                if (onBackInvokedCb != null) {
+                    try {
+                        onBackInvokedDispatcher.unregisterOnBackInvokedCallback(onBackInvokedCb!!)
+                    } catch (_: Exception) {
+                        // ignore if already unregistered
+                    }
+                    onBackInvokedCb = null
+                }
+            }
+        }
     }
 
     // --- Language selection logic ---
@@ -324,19 +362,25 @@ class SettingsActivity : BaseActivity() {
         findViewById<LinearLayout>(R.id.advanced_box).setPadding(left, 0, right, 0)
     }
 
-    // Handle back logic
+    // Handle back logic: closes theme panel if visible and returns true to indicate consumed.
     private fun handleBackPress(): Boolean {
         val themePanel = findViewById<FrameLayout>(R.id.theme_panel)
 
         return if (themePanel.visibility == View.VISIBLE) {
             Utils.fadeOutAnim(themePanel, 300) // Close panel
+            // After closing theme panel, disable interception if nothing else is open.
+            // We post a tiny delay to allow the fade-out to start; the interception state will
+            // be updated by the callback's post-call `anyOverlayOpen()` check, but ensure OnBackInvoked unregistered:
+            Handler().postDelayed({
+                setBackInterceptionEnabled(anyOverlayOpen())
+            }, 10)
             true // Consume back press
         } else {
             false // Allow system to handle it (shows preview animation)
         }
     }
 
-    // Override for Android < 13
+    // Override for Android < 13 - fallback
     override fun onBackPressed() {
         if (!handleBackPress()) {
             super.onBackPressed()
@@ -421,6 +465,8 @@ class SettingsActivity : BaseActivity() {
     }
 
     private fun themeSettings() {
+        val themePanel = findViewById<FrameLayout>(R.id.theme_panel)
+
         findViewById<TextView>(R.id.system_default_btn).setOnClickListener {
             val themePreference = ThemePreference(this)
             themePreference.setValue(100)
@@ -433,7 +479,10 @@ class SettingsActivity : BaseActivity() {
                     setTheme(R.style.AppThemeDark)
                 } // Night mode is active, we're using dark theme
             }
-            Utils.fadeOutAnim(findViewById<FrameLayout>(R.id.theme_panel), 300)
+            Utils.fadeOutAnim(themePanel, 300)
+            // theme closed -> disable interception shortly after fade begins
+            Handler().postDelayed({ setBackInterceptionEnabled(false) }, 10)
+
             val delayChange = Handler()
             delayChange.postDelayed({
                 finish()
@@ -448,7 +497,8 @@ class SettingsActivity : BaseActivity() {
             val themePreference = ThemePreference(this)
             themePreference.setValue(0)
             setTheme(R.style.AppTheme)
-            Utils.fadeOutAnim(findViewById<FrameLayout>(R.id.theme_panel), 300)
+            Utils.fadeOutAnim(themePanel, 300)
+            Handler().postDelayed({ setBackInterceptionEnabled(false) }, 10)
 
             val delayChange = Handler()
             delayChange.postDelayed({
@@ -464,7 +514,8 @@ class SettingsActivity : BaseActivity() {
             val themePreference = ThemePreference(this)
             themePreference.setValue(1)
             setTheme(R.style.AppThemeDark)
-            Utils.fadeOutAnim(findViewById<FrameLayout>(R.id.theme_panel), 300)
+            Utils.fadeOutAnim(themePanel, 300)
+            Handler().postDelayed({ setBackInterceptionEnabled(false) }, 10)
 
             val delayChange = Handler()
             delayChange.postDelayed({
@@ -477,13 +528,30 @@ class SettingsActivity : BaseActivity() {
             }, 302)
         }
         findViewById<RelativeLayout>(R.id.themes_settings).setOnClickListener {
-            Utils.fadeInAnim(findViewById<FrameLayout>(R.id.theme_panel), 300)
+            Utils.fadeInAnim(themePanel, 300)
+            // theme opened -> enable interception (back should close theme panel)
+            setBackInterceptionEnabled(true)
         }
         findViewById<TextView>(R.id.theme_background).setOnClickListener {
-            Utils.fadeOutAnim(findViewById<FrameLayout>(R.id.theme_panel), 300)
+            Utils.fadeOutAnim(themePanel, 300)
+            // closed -> disable interception shortly after fade begins
+            Handler().postDelayed({ setBackInterceptionEnabled(false) }, 10)
         }
         findViewById<TextView>(R.id.cancel_btn).setOnClickListener {
-            Utils.fadeOutAnim(findViewById<FrameLayout>(R.id.theme_panel), 300)
+            Utils.fadeOutAnim(themePanel, 300)
+            Handler().postDelayed({ setBackInterceptionEnabled(false) }, 10)
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        backCallback?.remove()
+        backCallback = null
+        if (onBackInvokedCb != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            try {
+                onBackInvokedDispatcher.unregisterOnBackInvokedCallback(onBackInvokedCb!!)
+            } catch (_: Exception) { }
+            onBackInvokedCb = null
         }
     }
 }

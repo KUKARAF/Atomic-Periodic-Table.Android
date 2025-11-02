@@ -16,32 +16,32 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="18dp"
-            android:layout_marginTop="9dp"
-            android:layout_marginEnd="18dp"
-            android:layout_marginBottom="9dp"
+            android:layout_marginStart="12dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginEnd="12dp"
+            android:layout_marginBottom="4dp"
             android:drawableStart="@drawable/ic_isotopes"
-            android:drawablePadding="9dp"
+            android:drawablePadding="4dp"
             android:drawableTint="?attr/colorPrimary"
             android:text="Properties"
             android:textColor="?attr/colorPrimary"
             android:textSize="20sp"
             android:textStyle="bold" />
 
-        <TextView
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:alpha="0.75"
-            android:background="?attr/colorOnSecondaryContainer" />
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:layout_marginEnd="12dp"
+            android:orientation="vertical"
+            android:padding="10dp"
+            android:background="@drawable/toast_element_list_top"
+            android:backgroundTint="?attr/colorPrimaryDark">
 
         <TextView
             android:id="@+id/element_atomic_number_title"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="18dp"
-            android:layout_marginTop="8dp"
-            android:layout_marginEnd="18dp"
-            android:layout_marginBottom="2dp"
             android:text="Atomic Number:"
             android:textColor="?attr/colorOnSecondaryContainer"
             android:textSize="14sp"
@@ -51,31 +51,27 @@
             android:id="@+id/element_atomic_number"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="18dp"
-            android:layout_marginTop="2dp"
-            android:layout_marginEnd="18dp"
-            android:layout_marginBottom="8dp"
             android:text="element_name"
             android:textIsSelectable="true"
             android:textColor="?attr/colorOnSecondaryContainer"
             android:textSize="14sp" />
+        </LinearLayout>
 
-        <TextView
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginStart="18dp"
-            android:layout_marginEnd="18dp"
-            android:alpha="0.25"
-            android:background="?attr/colorOnSecondaryContainer" />
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:layout_marginStart="12dp"
+            android:layout_marginEnd="12dp"
+            android:orientation="vertical"
+            android:padding="10dp"
+            android:background="@drawable/toast_element_list"
+            android:backgroundTint="?attr/colorPrimaryDark">
 
         <TextView
             android:id="@+id/element_atomic_weight_title"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="18dp"
-            android:layout_marginTop="8dp"
-            android:layout_marginEnd="18dp"
-            android:layout_marginBottom="2dp"
             android:text="Atomic Weight (Relative Atomic Mass):"
             android:textColor="?attr/colorOnSecondaryContainer"
             android:textSize="14sp"
@@ -85,31 +81,28 @@
             android:id="@+id/element_atomic_weight"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="18dp"
-            android:layout_marginTop="2dp"
-            android:layout_marginEnd="18dp"
-            android:layout_marginBottom="8dp"
             android:text="element_name"
             android:textIsSelectable="true"
             android:textColor="?attr/colorOnSecondaryContainer"
             android:textSize="14sp" />
 
-        <TextView
+        </LinearLayout>
+
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginStart="18dp"
-            android:layout_marginEnd="18dp"
-            android:alpha="0.25"
-            android:background="?attr/colorOnSecondaryContainer" />
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:layout_marginStart="12dp"
+            android:layout_marginEnd="12dp"
+            android:orientation="vertical"
+            android:padding="10dp"
+            android:background="@drawable/toast_element_list"
+            android:backgroundTint="?attr/colorPrimaryDark">
 
         <TextView
             android:id="@+id/element_density_title"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="18dp"
-            android:layout_marginTop="8dp"
-            android:layout_marginEnd="18dp"
-            android:layout_marginBottom="2dp"
             android:text="Density:"
             android:textColor="?attr/colorOnSecondaryContainer"
             android:textSize="14sp"
@@ -119,32 +112,27 @@
             android:id="@+id/element_density"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="18dp"
-            android:layout_marginTop="2dp"
-            android:layout_marginEnd="18dp"
-            android:layout_marginBottom="8dp"
             android:text="element_name"
             android:textIsSelectable="true"
             android:textColor="?attr/colorOnSecondaryContainer"
             android:textSize="14sp" />
+        </LinearLayout>
 
-        <TextView
-            android:id="@+id/textView3"
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginStart="18dp"
-            android:layout_marginEnd="18dp"
-            android:alpha="0.25"
-            android:background="?attr/colorOnSecondaryContainer" />
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:layout_marginStart="12dp"
+            android:layout_marginEnd="12dp"
+            android:orientation="vertical"
+            android:padding="10dp"
+            android:background="@drawable/toast_element_list"
+            android:backgroundTint="?attr/colorPrimaryDark">
 
         <TextView
             android:id="@+id/element_electronegativty_title"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="18dp"
-            android:layout_marginTop="8dp"
-            android:layout_marginEnd="18dp"
-            android:layout_marginBottom="2dp"
             android:text="Electronegativity:"
             android:textColor="?attr/colorOnSecondaryContainer"
             android:textSize="14sp"
@@ -154,32 +142,28 @@
             android:id="@+id/element_electronegativty"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="18dp"
-            android:layout_marginTop="2dp"
-            android:layout_marginEnd="18dp"
-            android:layout_marginBottom="8dp"
             android:text="element_name"
             android:textIsSelectable="true"
             android:textColor="?attr/colorOnSecondaryContainer"
             android:textSize="14sp" />
 
-        <TextView
-            android:id="@+id/textView32"
+        </LinearLayout>
+
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginStart="18dp"
-            android:layout_marginEnd="18dp"
-            android:alpha="0.25"
-            android:background="?attr/colorOnSecondaryContainer" />
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:layout_marginStart="12dp"
+            android:layout_marginEnd="12dp"
+            android:orientation="vertical"
+            android:padding="10dp"
+            android:background="@drawable/toast_element_list"
+            android:backgroundTint="?attr/colorPrimaryDark">
 
         <TextView
             android:id="@+id/element_block_title"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="18dp"
-            android:layout_marginTop="8dp"
-            android:layout_marginEnd="18dp"
-            android:layout_marginBottom="2dp"
             android:text="Block:"
             android:textColor="?attr/colorOnSecondaryContainer"
             android:textSize="14sp"
@@ -189,20 +173,78 @@
             android:id="@+id/element_block"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="18dp"
-            android:layout_marginTop="2dp"
-            android:layout_marginEnd="18dp"
             android:text="element_block"
             android:textIsSelectable="true"
             android:textColor="?attr/colorOnSecondaryContainer"
             android:textSize="14sp" />
 
+        </LinearLayout>
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:layout_marginStart="12dp"
+            android:layout_marginEnd="12dp"
+            android:orientation="vertical"
+            android:padding="10dp"
+            android:background="@drawable/toast_element_list_bottom"
+            android:backgroundTint="?attr/colorPrimaryDark">
+        <TextView
+            android:id="@+id/sp_lines_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Emission Spectrum:"
+            android:textColor="?attr/colorOnSecondaryContainer"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/sp_offline"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Go online for emission lines"
+            android:textColor="?attr/colorOnSecondaryContainer"
+            android:textSize="18sp"
+            android:visibility="gone" />
+
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+
+                app:cardCornerRadius="24dp">
+
+                <ImageView
+                    android:id="@+id/open_btn2"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="end"
+                    android:layout_margin="8dp"
+                    android:background="@color/transparent"
+                    android:backgroundTint="@color/transparent"
+                    android:elevation="4dp"
+                    app:srcCompat="@drawable/ic_open"
+                    app:tint="?attr/colorTertiary"/>
+
+                <ImageView
+                    android:id="@+id/sp_img"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity=""
+                    android:adjustViewBounds="true"
+                    android:scaleType="centerCrop"
+                    app:srcCompat="@drawable/ic_launcher_background" />
+
+            </androidx.cardview.widget.CardView>
+        </LinearLayout>
+
         <androidx.cardview.widget.CardView
             android:id="@+id/electron_view"
             android:layout_width="match_parent"
             android:layout_height="140dp"
-            android:layout_margin="16dp"
-            android:backgroundTint="?attr/colorSurfaceVariant"
+            android:layout_marginStart="12dp"
+            android:layout_marginEnd="12dp"
+            android:layout_marginTop="12dp"
+            android:backgroundTint="?attr/colorPrimaryDark"
             android:elevation="0dp"
             app:cardCornerRadius="24dp"
             app:cardElevation="0dp">
@@ -266,62 +308,6 @@
 
         </androidx.cardview.widget.CardView>
 
-        <TextView
-            android:id="@+id/sp_lines_title"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="18dp"
-            android:layout_marginEnd="18dp"
-            android:layout_marginBottom="2dp"
-            android:text="Emission Spectrum:"
-            android:textColor="?attr/colorOnSecondaryContainer"
-            android:textSize="14sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/sp_offline"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="18dp"
-            android:layout_marginTop="9dp"
-            android:layout_marginEnd="18dp"
-            android:layout_marginBottom="18dp"
-            android:text="Go online for emission lines"
-            android:textColor="?attr/colorOnSecondaryContainer"
-            android:textSize="18sp"
-            android:visibility="gone" />
-
-        <androidx.cardview.widget.CardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="16dp"
-            android:layout_marginTop="4dp"
-            android:layout_marginEnd="16dp"
-            android:layout_marginBottom="4dp"
-            app:cardCornerRadius="24dp">
-
-            <ImageView
-                android:id="@+id/open_btn2"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="end"
-                android:layout_margin="8dp"
-                android:background="@color/transparent"
-                android:backgroundTint="@color/transparent"
-                android:elevation="4dp"
-                app:srcCompat="@drawable/ic_open"
-                app:tint="?attr/colorTertiary"/>
-
-            <ImageView
-                android:id="@+id/sp_img"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_gravity=""
-                android:adjustViewBounds="true"
-                android:scaleType="centerCrop"
-                app:srcCompat="@drawable/ic_launcher_background" />
-
-        </androidx.cardview.widget.CardView>
 
 
     </LinearLayout>

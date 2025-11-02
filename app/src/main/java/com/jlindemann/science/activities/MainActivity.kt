@@ -19,6 +19,7 @@ import android.view.ViewTreeObserver.OnScrollChangedListener
 import android.view.animation.ScaleAnimation
 import android.view.inputmethod.InputMethodManager
 import android.widget.*
+import androidx.activity.OnBackPressedCallback
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContentProviderCompat.requireContext
 import androidx.core.content.ContextCompat
@@ -30,6 +31,7 @@ import com.jlindemann.science.R
 import com.jlindemann.science.activities.settings.ProActivity
 import com.jlindemann.science.activities.tables.DictionaryActivity
 import com.jlindemann.science.activities.tools.CalculatorActivity
+import com.jlindemann.science.activities.tools.FlashCardActivity
 import com.jlindemann.science.adapter.ElementAdapter
 import com.jlindemann.science.animations.Anim
 import com.jlindemann.science.extensions.TableExtension
@@ -59,6 +61,9 @@ import kotlin.concurrent.schedule
 class MainActivity : TableExtension(), ElementAdapter.OnElementClickListener2 {
     private var elementList = ArrayList<Element>()
     var mAdapter = ElementAdapter(elementList, this, this)
+
+    // Lifecycle-aware back callback reference
+    private var backCallback: OnBackPressedCallback? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -129,6 +134,10 @@ class MainActivity : TableExtension(), ElementAdapter.OnElementClickListener2 {
             val intent = Intent(this, UserActivity::class.java)
             startActivity(intent)
         }
+        findViewById<ImageButton>(R.id.flaschard_btn).setOnClickListener {
+            val intent = Intent(this, FlashCardActivity::class.java)
+            startActivity(intent)
+        }
 
         findViewById<SlidingUpPanelLayout>(R.id.sliding_layout).addPanelSlideListener(object : SlidingUpPanelLayout.PanelSlideListener {
             override fun onPanelSlide(panel: View?, slideOffset: Float) {}
@@ -136,9 +145,23 @@ class MainActivity : TableExtension(), ElementAdapter.OnElementClickListener2 {
                 if (findViewById<SlidingUpPanelLayout>(R.id.sliding_layout).panelState === PanelState.COLLAPSED) {
                     findViewById<FrameLayout>(R.id.nav_menu_include).visibility = View.GONE
                     Utils.fadeOutAnim(findViewById<TextView>(R.id.nav_background), 100)
+                    // Nothing left to intercept: disable callback
+                    backCallback?.isEnabled = false
+                } else if (newState == PanelState.EXPANDED) {
+                    // Panel expanded -> intercept back
+                    backCallback?.isEnabled = true
                 }
             }
         })
+
+        // Register a lifecycle-aware OnBackPressedCallback in DISABLED state.
+        // We'll enable it only when overlays are shown (search, filter, nav, hover, popup).
+        backCallback = object : OnBackPressedCallback(false) {
+            override fun handleOnBackPressed() {
+                handleBack()
+            }
+        }
+        onBackPressedDispatcher.addCallback(this, backCallback!!)
     }
 
     private fun maybeShowProPopup() {
@@ -163,17 +186,23 @@ class MainActivity : TableExtension(), ElementAdapter.OnElementClickListener2 {
 
         val popupView = findViewById<ConstraintLayout>(R.id.pro_popup_include) ?: return
         Anim.fadeIn(popupView, 300)
+        // An overlay is visible — enable our back interceptor
+        backCallback?.isEnabled = true
 
         findViewById<Button>(R.id.popup_action_button)?.setOnClickListener {
             val intent = Intent(this, ProActivity::class.java)
             startActivity(intent)
+            // leaving the activity — make sure callback disabled when returning default state
+            backCallback?.isEnabled = false
         }
 
         val suppressPopup: () -> Unit = {
             Anim.fadeOutAnim(popupView, 300)
-            // Suppress for 20 days (in millis)
+            // Suppress for 30 days (in millis)
             val suppressUntil = now + 30 * 24 * 60 * 60 * 1000L
             prefs.edit().putLong("popup_suppressed_until", suppressUntil).apply()
+            // popup closed -> disable callback
+            backCallback?.isEnabled = false
         }
 
         findViewById<Button>(R.id.popup_secondary_button)?.setOnClickListener { suppressPopup() }
@@ -247,11 +276,15 @@ class MainActivity : TableExtension(), ElementAdapter.OnElementClickListener2 {
     private fun openHover() {
         Utils.fadeInAnimBack(findViewById<TextView>(R.id.hover_background), 200)
         Utils.fadeInAnim(findViewById<ConstraintLayout>(R.id.hover_menu_include), 300)
+        // overlay shown -> intercept back
+        backCallback?.isEnabled = true
     }
 
     private fun closeHover() {
         Utils.fadeOutAnim(findViewById<TextView>(R.id.hover_background), 200)
         Utils.fadeOutAnim(findViewById<ConstraintLayout>(R.id.hover_menu_include), 300)
+        // closed -> no interception needed
+        backCallback?.isEnabled = false
     }
 
     private fun filter(text: String, list: ArrayList<Element>, recyclerView: RecyclerView) {
@@ -266,7 +299,7 @@ class MainActivity : TableExtension(), ElementAdapter.OnElementClickListener2 {
         val searchPrefValue = searchPreference.getValue()
         if (searchPrefValue == 2) {
             filteredList.sortWith(Comparator { lhs, rhs ->
-                if (lhs.element < rhs.element) -1 else if (lhs.element < rhs.element) 1 else 0
+                lhs.element.compareTo(rhs.element)
             })
         }
         mAdapter.filterList(filteredList)
@@ -291,41 +324,120 @@ class MainActivity : TableExtension(), ElementAdapter.OnElementClickListener2 {
         startActivity(intent)
     }
 
+    // Keep onBackPressed as a fallback; main logic is in handleBack()
     override fun onBackPressed() {
+        handleBack()
+    }
+
+    //Modern back gesture with predictive preview
+    private fun handleBack() {
+        // Cache views we will check/manipulate
         val popupView = findViewById<ConstraintLayout>(R.id.pro_popup_include)
+        val hoverBackground = findViewById<TextView>(R.id.hover_background)
+        val hoverMenu = findViewById<ConstraintLayout>(R.id.hover_menu_include)
+        val slidingLayout = findViewById<SlidingUpPanelLayout>(R.id.sliding_layout)
+        val navBackground = findViewById<TextView>(R.id.nav_background)
+        val navMenuInclude = findViewById<FrameLayout>(R.id.nav_menu_include)
+        val searchMenu = findViewById<FrameLayout>(R.id.search_menu_include)
+        val navBarMain = findViewById<FrameLayout>(R.id.nav_bar_main)
+        val moreBtn = findViewById<FloatingActionButton>(R.id.more_btn)
+        val searchBackground = findViewById<TextView>(R.id.background) // filter overlay background
+        val filterBox = findViewById<ConstraintLayout>(R.id.filter_box)
+
+        // Helper: returns true if any UI overlay that needs to intercept back is still visible/open.
+        fun anyOverlayOpen(): Boolean {
+            if (popupView?.visibility == View.VISIBLE) return true
+            if (hoverBackground?.visibility == View.VISIBLE) return true
+            if (hoverMenu?.visibility == View.VISIBLE) return true
+            if (slidingLayout != null && slidingLayout.panelState == PanelState.EXPANDED) return true
+            if (navBackground?.visibility == View.VISIBLE) return true
+            if (navMenuInclude?.visibility == View.VISIBLE) return true
+            if (filterBox?.visibility == View.VISIBLE) return true
+            if (searchBackground?.visibility == View.VISIBLE) return true
+            if (searchMenu?.visibility == View.VISIBLE) return true
+            return false
+        }
+
+        // 1) pro popup
         if (popupView?.visibility == View.VISIBLE) {
-            // Animate out
             Anim.fadeOutAnim(popupView, 300)
-            // Suppress popup for 30 days
             val prefs = getSharedPreferences("popup_prefs", Context.MODE_PRIVATE)
             val now = System.currentTimeMillis()
             val suppressUntil = now + 30 * 24 * 60 * 60 * 1000L
             prefs.edit().putLong("popup_suppressed_until", suppressUntil).apply()
+            // keep interception only if other overlays remain
+            backCallback?.isEnabled = anyOverlayOpen()
             return
         }
-        if (findViewById<TextView>(R.id.nav_background).visibility == View.VISIBLE) {
-            findViewById<SlidingUpPanelLayout>(R.id.sliding_layout).setPanelState(PanelState.COLLAPSED)
-            Utils.fadeOutAnim(findViewById<TextView>(R.id.nav_background), 150)
+
+        // 2) hover menu
+        if (hoverBackground?.visibility == View.VISIBLE || hoverMenu?.visibility == View.VISIBLE) {
+            if (hoverBackground?.visibility == View.VISIBLE) Utils.fadeOutAnim(hoverBackground, 150)
+            if (hoverMenu?.visibility == View.VISIBLE) Utils.fadeOutAnim(hoverMenu, 150)
+            backCallback?.isEnabled = anyOverlayOpen()
             return
         }
-        if (findViewById<TextView>(R.id.hover_background).visibility == View.VISIBLE) {
-            Utils.fadeOutAnim(findViewById<TextView>(R.id.hover_background), 150)
-            Utils.fadeOutAnim(findViewById<ConstraintLayout>(R.id.hover_menu_include), 150)
+
+        // 3) Navigation (sliding panel) - prefer collapsing if expanded
+        if (slidingLayout != null && slidingLayout.panelState == PanelState.EXPANDED) {
+            slidingLayout.setPanelState(PanelState.COLLAPSED)
+            if (navBackground != null) Utils.fadeOutAnim(navBackground, 150)
+            navMenuInclude?.visibility = View.GONE
+            // after collapsing, only intercept if other overlays remain
+            backCallback?.isEnabled = anyOverlayOpen()
             return
         }
-        if (findViewById<FrameLayout>(R.id.search_menu_include).visibility == View.VISIBLE) {
-            Utils.fadeInAnim(findViewById<FrameLayout>(R.id.nav_bar_main), 150)
-            Utils.fadeOutAnim(findViewById<TextView>(R.id.nav_background), 150)
-            Utils.fadeOutAnim(findViewById<FrameLayout>(R.id.search_menu_include), 150)
-            Utils.fadeInAnim(findViewById<FloatingActionButton>(R.id.more_btn), 300)
+        // Also handle scenario where nav background is visible but panel not expanded
+        if (navBackground?.visibility == View.VISIBLE || navMenuInclude?.visibility == View.VISIBLE) {
+            slidingLayout?.setPanelState(PanelState.COLLAPSED)
+            if (navBackground != null) Utils.fadeOutAnim(navBackground, 150)
+            navMenuInclude?.visibility = View.GONE
+            backCallback?.isEnabled = anyOverlayOpen()
             return
         }
-        if (findViewById<FrameLayout>(R.id.search_menu_include).visibility == View.VISIBLE && findViewById<TextView>(R.id.background).visibility == View.VISIBLE) {
-            Utils.fadeOutAnim(findViewById<TextView>(R.id.background), 150)
-            Utils.fadeOutAnim(findViewById<ConstraintLayout>(R.id.filter_box), 150)
-            Utils.fadeInAnim(findViewById<FloatingActionButton>(R.id.more_btn), 300)
+
+        // 4) Filter overlay inside search (IMPORTANT: handle before closing the entire search view)
+        if ((filterBox?.visibility == View.VISIBLE) || (searchBackground?.visibility == View.VISIBLE)) {
+            if (searchBackground?.visibility == View.VISIBLE) Utils.fadeOutAnim(searchBackground, 150)
+            if (filterBox?.visibility == View.VISIBLE) Utils.fadeOutAnim(filterBox, 150)
+            if (moreBtn != null) Utils.fadeInAnim(moreBtn, 300)
+            // Keep intercepting if the search menu itself is still open (so next back closes search),
+            // otherwise disable interception.
+            backCallback?.isEnabled = anyOverlayOpen()
             return
-        } else { super.onBackPressed() }
+        }
+
+        // 5) Search UI: if search layout open, close it and hide keyboard
+        if (searchMenu?.visibility == View.VISIBLE) {
+            if (navBarMain != null) Utils.fadeInAnim(navBarMain, 150) else navBarMain?.visibility = View.VISIBLE
+            if (navBackground != null) Utils.fadeOutAnim(navBackground, 150)
+            Utils.fadeOutAnim(searchMenu, 150)
+            if (moreBtn != null) Utils.fadeInAnim(moreBtn, 300)
+
+            // hide keyboard if open
+            val view = this.currentFocus
+            if (view != null) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    findViewById<ConstraintLayout>(R.id.view_main).doOnLayout { window.insetsController?.hide(WindowInsets.Type.ime()) }
+                } else {
+                    val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                    imm.hideSoftInputFromWindow(view.windowToken, 0)
+                }
+            }
+
+            // search closed -> disable interception unless another overlay is still open
+            backCallback?.isEnabled = anyOverlayOpen()
+            return
+        }
+
+        // Nothing special open — let system handle back (homescreen preview will appear when callback disabled)
+        backCallback?.isEnabled = false
+        if (isTaskRoot) {
+            // Move to background to mimic expected OS behavior (homescreen preview + backgrounding)
+            moveTaskToBack(true)
+        } else {
+            super.onBackPressed()
+        }
     }
 
 
@@ -334,6 +446,9 @@ class MainActivity : TableExtension(), ElementAdapter.OnElementClickListener2 {
             Utils.fadeInAnim(findViewById<FrameLayout>(R.id.search_menu_include), 300)
             findViewById<FrameLayout>(R.id.nav_bar_main).visibility = View.GONE
             Utils.fadeOutAnim(findViewById<FloatingActionButton>(R.id.more_btn), 300)
+
+            // search overlay -> enable interception
+            backCallback?.isEnabled = true
 
             findViewById<EditText>(R.id.edit_element).requestFocus()
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -350,6 +465,9 @@ class MainActivity : TableExtension(), ElementAdapter.OnElementClickListener2 {
             Utils.fadeOutAnim(findViewById<FrameLayout>(R.id.search_menu_include), 300)
             Utils.fadeInAnim(findViewById<FloatingActionButton>(R.id.more_btn), 300)
             findViewById<FrameLayout>(R.id.nav_bar_main).visibility = View.VISIBLE
+
+            // search closed -> disable interception
+            backCallback?.isEnabled = false
 
             val view = this.currentFocus
             if (view != null) {
@@ -393,12 +511,16 @@ class MainActivity : TableExtension(), ElementAdapter.OnElementClickListener2 {
             findViewById<TextView>(R.id.nav_background).visibility = View.VISIBLE
             Utils.fadeInAnimBack(findViewById<TextView>(R.id.nav_background), 200)
             findViewById<SlidingUpPanelLayout>(R.id.sliding_layout).panelState = PanelState.EXPANDED
+            // nav opened -> intercept back
+            backCallback?.isEnabled = true
         }
         findViewById<TextView>(R.id.nav_background).setOnClickListener {
             findViewById<FrameLayout>(R.id.search_menu_include).visibility = View.GONE
             findViewById<SlidingUpPanelLayout>(R.id.sliding_layout).setPanelState(PanelState.COLLAPSED)
             findViewById<FrameLayout>(R.id.nav_bar_main).visibility = View.VISIBLE
             Utils.fadeOutAnim(findViewById<TextView>(R.id.nav_background), 100)
+            // nav closed -> disable interception
+            backCallback?.isEnabled = false
         }
         findViewById<TextView>(R.id.pro_btn).setOnClickListener {
             val intent = Intent(this, ProActivity::class.java)
@@ -517,10 +639,14 @@ class MainActivity : TableExtension(), ElementAdapter.OnElementClickListener2 {
         findViewById<FloatingActionButton>(R.id.filter_btn).setOnClickListener {
             Utils.fadeInAnim(findViewById<ConstraintLayout>(R.id.filter_box), 150)
             Utils.fadeInAnim(findViewById<TextView>(R.id.background), 150)
+            // filter overlay shown -> intercept back
+            backCallback?.isEnabled = true
         }
         findViewById<TextView>(R.id.background).setOnClickListener {
             Utils.fadeOutAnim(findViewById<ConstraintLayout>(R.id.filter_box), 150)
             Utils.fadeOutAnim(findViewById<TextView>(R.id.background), 150)
+            // filter closed -> no interception
+            backCallback?.isEnabled = false
         }
         findViewById<TextView>(R.id.elmt_numb_btn2).setOnClickListener {
             val searchPreference = SearchPreferences(this)
@@ -532,6 +658,8 @@ class MainActivity : TableExtension(), ElementAdapter.OnElementClickListener2 {
             }
             Utils.fadeOutAnim(findViewById<ConstraintLayout>(R.id.filter_box), 150)
             Utils.fadeOutAnim(findViewById<TextView>(R.id.background), 150)
+            // filter closed -> no interception
+            backCallback?.isEnabled = false
             mAdapter.filterList(filtList)
             mAdapter.notifyDataSetChanged()
             recyclerView.adapter = ElementAdapter(filtList, this, this)
@@ -546,6 +674,8 @@ class MainActivity : TableExtension(), ElementAdapter.OnElementClickListener2 {
             }
             Utils.fadeOutAnim(findViewById<ConstraintLayout>(R.id.filter_box), 150)
             Utils.fadeOutAnim(findViewById<TextView>(R.id.background), 150)
+            // filter closed -> no interception
+            backCallback?.isEnabled = false
             mAdapter.filterList(filtList)
             mAdapter.notifyDataSetChanged()
             recyclerView.adapter = ElementAdapter(filtList, this, this)
@@ -560,8 +690,10 @@ class MainActivity : TableExtension(), ElementAdapter.OnElementClickListener2 {
             }
             Utils.fadeOutAnim(findViewById<ConstraintLayout>(R.id.filter_box), 150)
             Utils.fadeOutAnim(findViewById<TextView>(R.id.background), 150)
+            // filter closed -> no interception
+            backCallback?.isEnabled = false
             filtList.sortWith(Comparator { lhs, rhs ->
-                if (lhs.element < rhs.element) -1 else if (lhs.element < rhs.element) 1 else 0
+                lhs.element.compareTo(rhs.element)
             })
             mAdapter.filterList(filtList)
             mAdapter.notifyDataSetChanged()
@@ -678,5 +810,12 @@ class MainActivity : TableExtension(), ElementAdapter.OnElementClickListener2 {
         AchievementModel.getList(this, achievements)
         val achievement8 = achievements.find { it.id == 8 } //search stat
         achievement8?.incrementProgress(this, 1)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // Remove callback
+        backCallback?.remove()
+        backCallback = null
     }
 }

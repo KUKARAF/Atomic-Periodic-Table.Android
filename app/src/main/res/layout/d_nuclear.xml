@@ -10,7 +10,6 @@
         android:id="@+id/physics_properties"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_marginTop="8dp"
         android:layout_marginBottom="8dp"
         android:elevation="2dp"
         android:orientation="vertical">
@@ -18,32 +17,32 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="18dp"
-            android:layout_marginTop="9dp"
-            android:layout_marginEnd="18dp"
-            android:layout_marginBottom="9dp"
+            android:layout_marginStart="12dp"
+            android:layout_marginTop="12dp"
+            android:layout_marginEnd="12dp"
+            android:layout_marginBottom="4dp"
             android:drawableStart="@drawable/ic_nucleari"
-            android:drawablePadding="9dp"
+            android:drawablePadding="4dp"
             android:drawableTint="?attr/colorPrimary"
             android:text="Nuclear Properties"
             android:textColor="?attr/colorPrimary"
             android:textSize="20sp"
             android:textStyle="bold" />
 
-        <TextView
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:alpha="0.75"
-            android:background="?attr/colorOnSecondaryContainer" />
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:layout_marginEnd="12dp"
+            android:orientation="vertical"
+            android:padding="10dp"
+            android:background="@drawable/toast_element_list_top"
+            android:backgroundTint="?attr/colorPrimaryDark">
 
         <TextView
             android:id="@+id/radioactive_title"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="18dp"
-            android:layout_marginTop="8dp"
-            android:layout_marginEnd="18dp"
-            android:layout_marginBottom="2dp"
             android:text="Radioactive:"
             android:textColor="?attr/colorOnSecondaryContainer"
             android:textSize="14sp"
@@ -53,22 +52,22 @@
             android:id="@+id/radioactive_text"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="18dp"
-            android:layout_marginTop="2dp"
-            android:layout_marginEnd="18dp"
-            android:layout_marginBottom="8dp"
             android:text="radioactive_text"
             android:textIsSelectable="true"
             android:textColor="?attr/colorOnSecondaryContainer"
             android:textSize="14sp" />
+        </LinearLayout>
 
-        <TextView
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginStart="18dp"
-            android:layout_marginEnd="18dp"
-            android:alpha="0.25"
-            android:background="?attr/colorOnSecondaryContainer" />
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:layout_marginStart="12dp"
+            android:layout_marginEnd="12dp"
+            android:orientation="vertical"
+            android:padding="10dp"
+            android:background="@drawable/toast_element_list"
+            android:backgroundTint="?attr/colorPrimaryDark">
 
         <FrameLayout
             android:id="@+id/isotopes_frame"
@@ -77,30 +76,30 @@
             android:clickable="true"
             android:focusable="true">
 
-            <ImageView
+            <ImageButton
                 android:id="@+id/isotopes_icon"
-                android:layout_width="64dp"
-                android:layout_height="match_parent"
+                android:layout_width="42dp"
+                android:layout_height="42dp"
                 android:layout_gravity="end"
-                android:padding="18dp"
                 android:rotation="270"
-                app:tint="?attr/colorTertiary"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="@drawable/square_button"
+                android:backgroundTint="?attr/colorTertiary"
+                app:tint="?attr/colorOnTertiary"
                 app:srcCompat="@drawable/ic_arrow" />
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:layout_marginEnd="64dp"
+                android:layout_marginEnd="72dp"
                 android:orientation="vertical">
 
                 <TextView
                     android:id="@+id/isotopes_title"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="18dp"
-                    android:layout_marginTop="8dp"
-                    android:layout_marginEnd="18dp"
-                    android:layout_marginBottom="2dp"
+
                     android:text="Isotopes:"
                     android:textColor="?attr/colorOnSecondaryContainer"
                     android:textSize="14sp"
@@ -110,32 +109,28 @@
                     android:id="@+id/isotopes_text"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="18dp"
-                    android:layout_marginTop="2dp"
-                    android:layout_marginEnd="18dp"
-                    android:layout_marginBottom="8dp"
                     android:text="View all Isotopes"
                     android:textColor="?attr/colorOnSecondaryContainer"
                     android:textSize="14sp" />
             </LinearLayout>
         </FrameLayout>
+        </LinearLayout>
 
-        <TextView
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginStart="18dp"
-            android:layout_marginEnd="18dp"
-            android:alpha="0.25"
-            android:background="?attr/colorOnSecondaryContainer" />
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:layout_marginStart="12dp"
+            android:layout_marginEnd="12dp"
+            android:orientation="vertical"
+            android:padding="10dp"
+            android:background="@drawable/toast_element_list_bottom"
+            android:backgroundTint="?attr/colorPrimaryDark">
 
         <TextView
             android:id="@+id/neutron_cross_sectional_title"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="18dp"
-            android:layout_marginTop="8dp"
-            android:layout_marginEnd="18dp"
-            android:layout_marginBottom="2dp"
             android:text="Neutron Cross Sectional:"
             android:textColor="?attr/colorOnSecondaryContainer"
             android:textSize="14sp"
@@ -145,13 +140,10 @@
             android:id="@+id/neutron_cross_sectional_text"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="18dp"
-            android:layout_marginTop="2dp"
-            android:layout_marginEnd="18dp"
-            android:layout_marginBottom="8dp"
             android:text="neutron_cross_sectional_text"
             android:textIsSelectable="true"
             android:textColor="?attr/colorOnSecondaryContainer"
             android:textSize="14sp" />
+        </LinearLayout>
     </LinearLayout>
 </LinearLayout>

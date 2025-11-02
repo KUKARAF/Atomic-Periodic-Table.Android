@@ -19,9 +19,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:paddingStart="18dp"
-                android:paddingTop="18dp"
-                android:paddingEnd="18dp"
+                android:paddingTop="2dp"
                 android:paddingBottom="4dp">
 
                 <TextView
@@ -102,10 +100,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:paddingStart="18dp"
-                android:paddingTop="4dp"
-                android:paddingEnd="18dp"
-                android:paddingBottom="18dp">
+>
 
                 <TextView
                     android:id="@+id/p1ox"
