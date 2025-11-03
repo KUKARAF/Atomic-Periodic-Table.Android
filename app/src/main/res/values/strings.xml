@@ -403,9 +403,9 @@
     <string name="flashcards_difficulty_title" >Difficulty</string>
     <string name="flashcards_free_games" >Free Games:</string>
     <string name="flashcards_pro_plus_games" >PRO+ Games:</string>
-    <string name="flashcards_pro_level_0_5" >Level 0-4:</string>
-    <string name="flashcards_pro_level_5_10" >Level 5-9:</string>
-    <string name="flashcards_pro_level_10_15" >Level 10-14:</string>
+    <string name="flashcards_pro_level_0_5" >Level 0:</string>
+    <string name="flashcards_pro_level_5_10" >Level 5:</string>
+    <string name="flashcards_pro_level_10_15" >Level 10:</string>
     <string name="flashcards_game_element_symbols" >Element Symbols</string>
     <string name="flashcards_game_element_names" >Element Names</string>
     <string name="flashcards_game_element_groups" >Element Groups</string>
@@ -420,33 +420,33 @@
     <string name="easy" >Easy</string>
     <string name="medium" >Medium</string>
     <string name="hard" >Hard</string>
-    <string name="level_0_4" >Level 0–4</string>
+    <string name="level_0_4" >Level 0</string>
     <string name="element_symbols" >Element Symbols</string>
     <string name="element_names" >Element Names</string>
     <string name="element_groups" >Element Groups</string>
     <string name="discovered_by" >Discovered By</string>
     <string name="discovery_year" >Discovery Year</string>
-    <string name="level_5_9" >Level 5–9</string>
+    <string name="level_5_9" >Level 5</string>
     <string name="appearance" >Appearance</string>
     <string name="atomic_number" >Atomic Number</string>
     <string name="electrical_type" >Electrical Type</string>
     <string name="radioactive" >Radioactive</string>
-    <string name="level_10_14" >Level 10–14</string>
+    <string name="level_10_14" >Level 10</string>
     <string name="atomic_mass" >Atomic Mass</string>
     <string name="density" >Density</string>
     <string name="electronegativity" >Electronegativity</string>
     <string name="block" >Block</string>
-    <string name="level_15_19" >Level 15–19</string>
+    <string name="level_15_19" >Level 15</string>
     <string name="magnetic_type" >Magnetic Type</string>
     <string name="phase_stp" >Phase (STP)</string>
     <string name="superconducting_point" >Superconducting Point</string>
-    <string name="level_20_24" >Level 20–24</string>
+    <string name="level_20_24" >Level 20</string>
     <string name="neutron_cross_sectional" >Neutron Cross Sectional</string>
     <string name="specific_heat_capacity" >Specific Heat Capacity</string>
     <string name="mohs_hardness" >Mohs Hardness</string>
     <string name="vickers_hardness" >Vickers Hardness</string>
     <string name="brinell_hardness" >Brinell Hardness</string>
-    <string name="level_25_29" translatable="false" >Level 25–29</string>
+    <string name="level_25_29" translatable="false" >Level 25</string>
     <string name="boiling_point_celsius" translatable="false">Boiling Point (°C):</string>
     <string name="boiling_point_fahrenheit" translatable="false">Boiling Point (°F):</string>
     <string name="boiling_point_kelvin" translatable="false">Boiling Point (Kelvin):</string>
