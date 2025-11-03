@@ -70,7 +70,7 @@
             android:id="@+id/element_boiling_kelvin_title"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Boiling Point (Kelvin):"
+            android:text="@string/boiling_point_kelvin"
             android:textColor="?attr/colorOnSecondaryContainer"
             android:textSize="14sp"
             android:textStyle="bold" />
@@ -100,7 +100,7 @@
             android:id="@+id/element_boiling_celsius_title"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Boiling Point (°C):"
+            android:text="@string/boiling_point_celsius"
             android:textColor="?attr/colorOnSecondaryContainer"
             android:textSize="14sp"
             android:textStyle="bold" />
@@ -131,7 +131,7 @@
             android:id="@+id/element_boiling_fahrenheit_title"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Boiling Point (°F):"
+            android:text="@string/boiling_point_fahrenheit"
             android:textColor="?attr/colorOnSecondaryContainer"
             android:textSize="14sp"
             android:textStyle="bold" />
@@ -162,7 +162,7 @@
             android:id="@+id/element_melting_kelvin_title"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Melting Point (Kelvin):"
+            android:text="@string/melting_point_kelvin"
             android:textColor="?attr/colorOnSecondaryContainer"
             android:textSize="14sp"
             android:textStyle="bold" />
@@ -192,7 +192,7 @@
             android:id="@+id/element_melting_celsius_title"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Melting Point (°C):"
+            android:text="@string/melting_point_celsius"
             android:textColor="?attr/colorOnSecondaryContainer"
             android:textSize="14sp"
             android:textStyle="bold" />
@@ -223,7 +223,7 @@
             android:id="@+id/element_melting_fahrenheit_title"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Melting Point (°F):"
+            android:text="@string/melting_point_fahrenheit"
             android:textColor="?attr/colorOnSecondaryContainer"
             android:textSize="14sp"
             android:textStyle="bold" />

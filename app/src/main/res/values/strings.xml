@@ -2,7 +2,7 @@
     <string name="app_name">Atomic</string>
 
     <string name="personalization_settings">Personalization</string>
-    <string name="app_version" translatable="false">v4.3.0m-Build.169</string>
+    <string name="app_version" translatable="false">v4.3.0m-Build.170</string>
     <string name="next_sale_start" translatable="false" >2024/08/05</string>
     <string name="next_sale_end" translatable="false" >2024/09/15</string>
 
@@ -446,6 +446,15 @@
     <string name="mohs_hardness" >Mohs Hardness</string>
     <string name="vickers_hardness" >Vickers Hardness</string>
     <string name="brinell_hardness" >Brinell Hardness</string>
+    <string name="level_25_29" translatable="false" >Level 25–29</string>
+    <string name="boiling_point_celsius" translatable="false">Boiling Point (°C):</string>
+    <string name="boiling_point_fahrenheit" translatable="false">Boiling Point (°F):</string>
+    <string name="boiling_point_kelvin" translatable="false">Boiling Point (Kelvin):</string>
+    <string name="melting_point_celsius" translatable="false">Melting Point (°C):</string>
+    <string name="melting_point_fahrenheit" translatable="false">Melting Point (°F):</string>
+    <string name="melting_point_kelvin" translatable="false">Melting Point (Kelvin):</string>
+
+
     <string name="pro_plus_badge" >PRO+</string>
     <string name="lives_count_placeholder" >5</string>
     <string name="level_stat_placeholder" >---</string>

@@ -316,6 +316,12 @@ class LearningGamesActivity : BaseActivity() {
         "mohs_hardness" -> 60
         "vickers_hardness" -> 60
         "brinell_hardness" -> 60
+        "element_boiling_kelvin" -> 80
+        "element_boiling_celsius" -> 80
+        "element_boiling_fahrenheit" -> 80
+        "element_melting_kelvin" -> 80
+        "element_melting_celsius" -> 80
+        "element_melting_fahrenheit" -> 80
         else -> 5
     }
 
@@ -659,6 +665,42 @@ class LearningGamesActivity : BaseActivity() {
                     val wrongs = wrongAnswersFor({ it.brinell_hardness }, correct)
                     Triple(question, correct, (wrongs + correct).distinct().shuffled())
                 }
+                "element_boiling_kelvin" -> {
+                    val question = "What is the boiling point (Kelvin) of ${normalizeLabel(element.element)}?"
+                    val correct = normalizeLabel(element.boiling_kelvin)
+                    val wrongs = wrongAnswersFor({ it.boiling_kelvin }, correct)
+                    Triple(question, correct, (wrongs + correct).distinct().shuffled())
+                }
+                "element_boiling_celsius" -> {
+                    val question = "What is the boiling point (°C) of ${normalizeLabel(element.element)}?"
+                    val correct = normalizeLabel(element.boiling_celsius)
+                    val wrongs = wrongAnswersFor({ it.boiling_celsius }, correct)
+                    Triple(question, correct, (wrongs + correct).distinct().shuffled())
+                }
+                "element_boiling_fahrenheit" -> {
+                    val question = "What is the boiling point (°F) of ${normalizeLabel(element.element)}?"
+                    val correct = normalizeLabel(element.boiling_fahrenheit)
+                    val wrongs = wrongAnswersFor({ it.boiling_fahrenheit }, correct)
+                    Triple(question, correct, (wrongs + correct).distinct().shuffled())
+                }
+                "element_melting_kelvin" -> {
+                    val question = "What is the melting point (Kelvin) of ${normalizeLabel(element.element)}?"
+                    val correct = normalizeLabel(element.melting_kelvin)
+                    val wrongs = wrongAnswersFor({ it.melting_kelvin }, correct)
+                    Triple(question, correct, (wrongs + correct).distinct().shuffled())
+                }
+                "element_melting_celsius" -> {
+                    val question = "What is the melting point (°C) of ${normalizeLabel(element.element)}?"
+                    val correct = normalizeLabel(element.melting_celsius)
+                    val wrongs = wrongAnswersFor({ it.melting_celsius }, correct)
+                    Triple(question, correct, (wrongs + correct).distinct().shuffled())
+                }
+                "element_melting_fahrenheit" -> {
+                    val question = "What is the melting point (°F) of ${normalizeLabel(element.element)}?"
+                    val correct = normalizeLabel(element.melting_fahrenheit)
+                    val wrongs = wrongAnswersFor({ it.melting_fahrenheit }, correct)
+                    Triple(question, correct, (wrongs + correct).distinct().shuffled())
+                }
                 "mixed_questions" -> {
                     val categories = listOf(
                         "element_symbols", "element_names", "element_classifications", "discovered_by", "discovery_year",
@@ -717,7 +759,13 @@ class LearningGamesActivity : BaseActivity() {
         val specific_heat_capacity: String,
         val mohs_hardness: String,
         val vickers_hardness: String,
-        val brinell_hardness: String
+        val brinell_hardness: String,
+        val boiling_kelvin: String,
+        val boiling_celsius: String,
+        val boiling_fahrenheit: String,
+        val melting_kelvin: String,
+        val melting_celsius: String,
+        val melting_fahrenheit: String
     )
 
     private fun loadElementsFromAsset(filename: String): List<ElementData> {
@@ -749,7 +797,14 @@ class LearningGamesActivity : BaseActivity() {
                     specific_heat_capacity = obj.optString("element_specific_heat_capacity"),
                     mohs_hardness = obj.optString("mohs_hardness"),
                     vickers_hardness = obj.optString("vickers_hardness"),
-                    brinell_hardness = obj.optString("brinell_hardness")
+                    brinell_hardness = obj.optString("brinell_hardness"),
+                    boiling_kelvin = obj.optString("element_boiling_kelvin"),
+                    boiling_celsius = obj.optString("element_boiling_celsius"),
+                    boiling_fahrenheit = obj.optString("element_boiling_fahrenheit"),
+                    melting_kelvin = obj.optString("element_boiling_kelvin"),
+                    melting_celsius = obj.optString("element_boiling_celsius"),
+                    melting_fahrenheit = obj.optString("element_boiling_fahrenheit"),
+
                 )
             }
         } catch (e: Exception) {

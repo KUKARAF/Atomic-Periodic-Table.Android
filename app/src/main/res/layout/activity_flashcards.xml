@@ -821,6 +821,120 @@
                     <ImageView style="@style/CategoryButtonIcon"/>
                 </LinearLayout>
             </LinearLayout>
+            <!-- Level 25-29 Box -->
+            <LinearLayout
+                android:id="@+id/box_25_29"
+                android:background="@drawable/toast_card"
+                android:layout_marginBottom="@dimen/default_padding"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:paddingBottom="12dp"
+                android:orientation="vertical"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <TextView
+                    android:id="@+id/title_box_25_29"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/level_25_29"
+                    android:textStyle="bold"
+                    android:textSize="20sp"
+                    android:textColor="?attr/colorAccent"
+                    android:drawableStart="@drawable/ic_lock"
+                    android:drawableTint="?attr/colorAccent"
+                    android:drawablePadding="8dp"
+                    android:layout_marginTop="@dimen/default_padding"
+                    android:layout_marginBottom="@dimen/margin_space_card"/>
+
+                <LinearLayout
+                    android:id="@+id/btn_boiling_point_celsius"
+                    style="@style/CategoryButtonRow">
+                    <TextView style="@style/CategoryButtonText" android:text="@string/boiling_point_celsius"/>
+                    <ImageView style="@style/CategoryButtonIcon"/>
+                </LinearLayout>
+                <LinearLayout
+                    android:id="@+id/btn_boiling_point_fahrenheit"
+                    style="@style/CategoryButtonRow">
+                    <TextView style="@style/CategoryButtonText" android:text="@string/boiling_point_fahrenheit"/>
+                    <ImageView style="@style/CategoryButtonIcon"/>
+                </LinearLayout>
+                <LinearLayout
+                    android:id="@+id/btn_boiling_point_kelvin"
+                    style="@style/CategoryButtonRow">
+                    <TextView style="@style/CategoryButtonText" android:text="@string/boiling_point_kelvin"/>
+                    <ImageView style="@style/CategoryButtonIcon"/>
+                </LinearLayout>
+                <LinearLayout
+                    android:id="@+id/btn_melting_point_celsius"
+                    style="@style/CategoryButtonRow">
+                    <TextView style="@style/CategoryButtonText" android:text="@string/melting_point_celsius"/>
+                    <TextView
+                        android:id="@+id/pro_badge_melting_point_celsius"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/pro_plus_badge"
+                        android:textStyle="bold"
+                        android:textColor="?attr/colorOnPrimary"
+                        android:background="@drawable/pro_plus_badge_bg"
+                        android:paddingLeft="8dp"
+                        android:paddingRight="8dp"
+                        android:paddingTop="2dp"
+                        android:paddingBottom="2dp"
+                        android:textSize="12sp"
+                        android:layout_marginEnd="8dp"
+                        android:layout_marginStart="8dp"
+                        android:layout_gravity="center_vertical"
+                        android:visibility="gone"/>
+                    <ImageView style="@style/CategoryButtonIcon"/>
+                </LinearLayout>
+                <LinearLayout
+                    android:id="@+id/btn_melting_point_fahrenheit"
+                    style="@style/CategoryButtonRow">
+                    <TextView style="@style/CategoryButtonText" android:text="@string/melting_point_fahrenheit"/>
+                    <TextView
+                        android:id="@+id/pro_badge_melting_point_fahrenheit"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/pro_plus_badge"
+                        android:textStyle="bold"
+                        android:textColor="?attr/colorOnPrimary"
+                        android:background="@drawable/pro_plus_badge_bg"
+                        android:paddingLeft="8dp"
+                        android:paddingRight="8dp"
+                        android:paddingTop="2dp"
+                        android:paddingBottom="2dp"
+                        android:textSize="12sp"
+                        android:layout_marginEnd="8dp"
+                        android:layout_marginStart="8dp"
+                        android:layout_gravity="center_vertical"
+                        android:visibility="gone"/>
+                    <ImageView style="@style/CategoryButtonIcon"/>
+                </LinearLayout>
+                <LinearLayout
+                    android:id="@+id/btn_melting_point_kelvin"
+                    style="@style/CategoryButtonRow">
+                    <TextView style="@style/CategoryButtonText" android:text="@string/melting_point_kelvin"/>
+                    <TextView
+                        android:id="@+id/pro_badge_melting_point_kelvin"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/pro_plus_badge"
+                        android:textStyle="bold"
+                        android:textColor="?attr/colorOnPrimary"
+                        android:background="@drawable/pro_plus_badge_bg"
+                        android:paddingLeft="8dp"
+                        android:paddingRight="8dp"
+                        android:paddingTop="2dp"
+                        android:paddingBottom="2dp"
+                        android:textSize="12sp"
+                        android:layout_marginEnd="8dp"
+                        android:layout_marginStart="8dp"
+                        android:layout_gravity="center_vertical"
+                        android:visibility="gone"/>
+                    <ImageView style="@style/CategoryButtonIcon"/>
+                </LinearLayout>
+            </LinearLayout>
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
     <FrameLayout

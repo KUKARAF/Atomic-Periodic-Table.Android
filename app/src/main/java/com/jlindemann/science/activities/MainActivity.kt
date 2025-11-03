@@ -512,7 +512,7 @@ class MainActivity : TableExtension(), ElementAdapter.OnElementClickListener2 {
             val intent = Intent(this, ProActivity::class.java)
             startActivity(intent)
         }
-        findViewById<FloatingActionButton>(R.id.pro_fab).setOnClickListener {
+        findViewById<ImageButton>(R.id.pro_fab).setOnClickListener {
             val intent = Intent(this, ProActivity::class.java)
             startActivity(intent)
         }

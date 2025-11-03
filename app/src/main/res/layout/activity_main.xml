@@ -15,21 +15,6 @@
         android:background="?attr/colorPrimary"
         android:elevation="9dp" />
 
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/pro_fab"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginEnd="16dp"
-        android:layout_marginBottom="72dp"
-        android:backgroundTint="?attr/colorTertiary"
-        android:clickable="true"
-        android:focusable="true"
-        android:src="@drawable/ic_star"
-        android:tint="?attr/colorOnTertiary"
-        app:layout_constraintBottom_toBottomOf="@id/view_main"
-        app:layout_constraintEnd_toEndOf="@id/view_main" />
-
-
     <FrameLayout
         android:id="@+id/common_title_back_main"
         android:layout_width="match_parent"
@@ -897,5 +882,22 @@
         android:visibility="invisible"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toEndOf="parent" />
+
+    <ImageButton
+        android:id="@+id/pro_fab"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="72dp"
+        android:elevation="11dp"
+        android:background="@drawable/square_button"
+        android:backgroundTint="?attr/colorTertiary"
+        android:foreground="@drawable/square_button_ripple"
+        android:clickable="true"
+        android:focusable="true"
+        android:src="@drawable/ic_star"
+        app:tint="?attr/colorOnTertiary"
+        app:layout_constraintBottom_toBottomOf="@id/view_main"
+        app:layout_constraintEnd_toEndOf="@id/view_main" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
