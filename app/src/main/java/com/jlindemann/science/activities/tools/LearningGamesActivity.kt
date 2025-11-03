@@ -322,6 +322,8 @@ class LearningGamesActivity : BaseActivity() {
         "element_melting_kelvin" -> 80
         "element_melting_celsius" -> 80
         "element_melting_fahrenheit" -> 80
+        "earth_crust" -> 120
+        "earth_soils" -> 120
         else -> 5
     }
 
@@ -701,6 +703,18 @@ class LearningGamesActivity : BaseActivity() {
                     val wrongs = wrongAnswersFor({ it.melting_fahrenheit }, correct)
                     Triple(question, correct, (wrongs + correct).distinct().shuffled())
                 }
+                "earth_crust" -> {
+                    val question = "What is the abundance of ${normalizeLabel(element.element)} in the earths crust?"
+                    val correct = normalizeLabel(element.earth_crust)
+                    val wrongs = wrongAnswersFor({ it.earth_crust }, correct)
+                    Triple(question, correct, (wrongs + correct).distinct().shuffled())
+                }
+                "earth_soils" -> {
+                    val question = "What is the abundance of ${normalizeLabel(element.element)} in the earths soils?"
+                    val correct = normalizeLabel(element.earth_soils)
+                    val wrongs = wrongAnswersFor({ it.earth_soils }, correct)
+                    Triple(question, correct, (wrongs + correct).distinct().shuffled())
+                }
                 "mixed_questions" -> {
                     val categories = listOf(
                         "element_symbols", "element_names", "element_classifications", "discovered_by", "discovery_year",
@@ -765,7 +779,9 @@ class LearningGamesActivity : BaseActivity() {
         val boiling_fahrenheit: String,
         val melting_kelvin: String,
         val melting_celsius: String,
-        val melting_fahrenheit: String
+        val melting_fahrenheit: String,
+        val earth_crust: String,
+        val earth_soils: String
     )
 
     private fun loadElementsFromAsset(filename: String): List<ElementData> {
@@ -804,6 +820,8 @@ class LearningGamesActivity : BaseActivity() {
                     melting_kelvin = obj.optString("element_boiling_kelvin"),
                     melting_celsius = obj.optString("element_boiling_celsius"),
                     melting_fahrenheit = obj.optString("element_boiling_fahrenheit"),
+                    earth_crust = obj.optString("earth_crust"),
+                    earth_soils = obj.optString("earth_soils")
 
                 )
             }

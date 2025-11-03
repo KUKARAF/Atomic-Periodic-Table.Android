@@ -334,7 +334,7 @@ class ElementInfoActivity : InfoExtension() {
     }
 
     private fun nextPrev() {
-        findViewById<FloatingActionButton>(R.id.next_btn).setOnClickListener {
+        findViewById<ImageButton>(R.id.next_btn).setOnClickListener {
             var jsonString : String? = null
             try {
                 val ElementSendAndLoadPreference = ElementSendAndLoad(this)
@@ -356,7 +356,7 @@ class ElementInfoActivity : InfoExtension() {
             }
             catch (e: IOException) {}
         }
-        findViewById<FloatingActionButton>(R.id.previous_btn).setOnClickListener {
+        findViewById<ImageButton>(R.id.previous_btn).setOnClickListener {
             var jsonString : String? = null
             try {
                 val ElementSendAndLoadPreference = ElementSendAndLoad(this)

@@ -336,6 +336,7 @@ class FlashCardActivity : BaseActivity() {
             R.id.btn_boiling_point_kelvin to "element_boiling_kelvin",
             R.id.btn_boiling_point_celsius to "element_boiling_celsius",
             R.id.btn_boiling_point_fahrenheit to "element_boiling_fahrenheit",
+            R.id.btn_abundance_crust to "earth_crust",
                     // Pro user categories:
             R.id.btn_discovered_by to "discovered_by",
             R.id.btn_discovery_year to "discovery_year",
@@ -350,7 +351,8 @@ class FlashCardActivity : BaseActivity() {
             R.id.btn_brinell_hardness to "brinell_hardness",
             R.id.btn_melting_point_kelvin to "element_melting_kelvin",
             R.id.btn_melting_point_celsius to "element_melting_celsius",
-            R.id.btn_melting_point_fahrenheit to "element_melting_fahrenheit"
+            R.id.btn_melting_point_fahrenheit to "element_melting_fahrenheit",
+            R.id.btn_abundance_soil to "earth_soils"
         )
         categories.forEach { (btnId, category) ->
             val btn = findViewById<View>(btnId)
@@ -402,6 +404,7 @@ class FlashCardActivity : BaseActivity() {
             Pair(R.id.btn_melting_point_kelvin, R.id.pro_badge_melting_point_kelvin),
             Pair(R.id.btn_melting_point_celsius, R.id.pro_badge_melting_point_celsius),
             Pair(R.id.btn_melting_point_fahrenheit, R.id.pro_badge_melting_point_fahrenheit),
+            Pair(R.id.btn_abundance_soil, R.id.pro_badge_abundance_earth_soils)
         )
 
         for ((btnId, badgeId) in proCategoryButtons) {
@@ -415,7 +418,8 @@ class FlashCardActivity : BaseActivity() {
             R.id.box_10_14 to listOf(R.id.btn_electronegativity, R.id.btn_block),
             R.id.box_15_19 to listOf(R.id.btn_crystal_structure, R.id.btn_superconducting_point),
             R.id.box_20_24 to listOf(R.id.btn_mohs_hardness, R.id.btn_vickers_hardness, R.id.btn_brinell_hardness),
-            R.id.box_25_29 to listOf(R.id.btn_melting_point_kelvin, R.id.btn_melting_point_celsius, R.id.btn_melting_point_fahrenheit)
+            R.id.box_25_29 to listOf(R.id.btn_melting_point_kelvin, R.id.btn_melting_point_celsius, R.id.btn_melting_point_fahrenheit),
+            R.id.box_30_34 to listOf(R.id.btn_abundance_soil)
         )
         val boxesWithLevels = listOf(
             Triple(R.id.box_0_4, R.id.title_box_0_4, 0..4),
@@ -423,14 +427,16 @@ class FlashCardActivity : BaseActivity() {
             Triple(R.id.box_10_14, R.id.title_box_10_14, 10..14),
             Triple(R.id.box_15_19, R.id.title_box_15_19, 15..19),
             Triple(R.id.box_20_24, R.id.title_box_20_24, 20..24),
-            Triple(R.id.box_25_29, R.id.title_box_25_29, 25..29)
+            Triple(R.id.box_25_29, R.id.title_box_25_29, 25..29),
+            Triple(R.id.box_30_34, R.id.title_box_30_34, 30..34)
         )
         val proCategoryIds = setOf(
             R.id.btn_discovered_by, R.id.btn_discovery_year, R.id.btn_electrical_type,
             R.id.btn_radioactive, R.id.btn_electronegativity, R.id.btn_block,
             R.id.btn_crystal_structure, R.id.btn_superconducting_point,
             R.id.btn_mohs_hardness, R.id.btn_vickers_hardness, R.id.btn_brinell_hardness,
-            R.id.btn_melting_point_kelvin, R.id.btn_melting_point_celsius, R.id.btn_melting_point_fahrenheit
+            R.id.btn_melting_point_kelvin, R.id.btn_melting_point_celsius, R.id.btn_melting_point_fahrenheit,
+            R.id.btn_abundance_soil
         )
 
         for ((boxId, titleId, levelRange) in boxesWithLevels) {
@@ -559,7 +565,8 @@ class FlashCardActivity : BaseActivity() {
             R.id.btn_radioactive, R.id.btn_electronegativity, R.id.btn_block,
             R.id.btn_crystal_structure, R.id.btn_superconducting_point,
             R.id.btn_mohs_hardness, R.id.btn_vickers_hardness, R.id.btn_brinell_hardness,
-            R.id.btn_melting_point_kelvin, R.id.btn_melting_point_celsius, R.id.btn_melting_point_fahrenheit
+            R.id.btn_melting_point_kelvin, R.id.btn_melting_point_celsius, R.id.btn_melting_point_fahrenheit,
+            R.id.btn_abundance_soil
         )
         val categories = mapOf(
             R.id.btn_element_symbols to "element_symbols",
@@ -576,6 +583,7 @@ class FlashCardActivity : BaseActivity() {
             R.id.btn_boiling_point_kelvin to "element_boiling_kelvin",
             R.id.btn_boiling_point_celsius to "element_boiling_celsius",
             R.id.btn_boiling_point_fahrenheit to "element_boiling_fahrenheit",
+            R.id.btn_abundance_crust to "earth_crust",
             // Pro user categories:
             R.id.btn_discovered_by to "discovered_by",
             R.id.btn_discovery_year to "discovery_year",
@@ -590,7 +598,8 @@ class FlashCardActivity : BaseActivity() {
             R.id.btn_brinell_hardness to "brinell_hardness",
             R.id.btn_melting_point_kelvin to "element_melting_kelvin",
             R.id.btn_melting_point_celsius to "element_melting_celsius",
-            R.id.btn_melting_point_fahrenheit to "element_melting_fahrenheit"
+            R.id.btn_melting_point_fahrenheit to "element_melting_fahrenheit",
+            R.id.btn_abundance_soil to "earth_soils"
         )
         val isPro = checkProPlusStatus()
         val unlocked = mutableListOf<Pair<View, String>>()
@@ -618,7 +627,8 @@ class FlashCardActivity : BaseActivity() {
             R.id.btn_radioactive, R.id.btn_electronegativity, R.id.btn_block,
             R.id.btn_crystal_structure, R.id.btn_superconducting_point,
             R.id.btn_mohs_hardness, R.id.btn_vickers_hardness, R.id.btn_brinell_hardness,
-            R.id.btn_melting_point_kelvin, R.id.btn_melting_point_celsius, R.id.btn_melting_point_fahrenheit
+            R.id.btn_melting_point_kelvin, R.id.btn_melting_point_celsius, R.id.btn_melting_point_fahrenheit,
+            R.id.btn_abundance_soil
         ).contains(btn.id)
         if (isProCategory && !checkProPlusStatus()) {
             startActivity(Intent(this, ProActivity::class.java))

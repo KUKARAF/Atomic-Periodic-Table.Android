@@ -806,6 +806,7 @@
                 android:src="@drawable/ic_settings"
                 app:tint="?attr/colorOnSecondaryContainer"
                 app:backgroundTint="@color/transparent"
+                android:foreground="@drawable/c_ripple"
                 app:borderWidth="0dp"
                 app:elevation="0dp" />
 
@@ -819,6 +820,7 @@
                 android:src="@drawable/ic_menu"
                 app:tint="?attr/colorOnSecondaryContainer"
                 app:backgroundTint="@color/transparent"
+                android:foreground="@drawable/c_ripple"
                 app:borderWidth="0dp"
                 app:elevation="0dp" />
         </FrameLayout>

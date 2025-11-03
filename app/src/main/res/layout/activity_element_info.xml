@@ -132,32 +132,36 @@
                     android:scaleType="centerCrop"
                     android:src="@drawable/ic_launcher_background" />
 
-                <com.google.android.material.floatingactionbutton.FloatingActionButton
+                <ImageButton
                     android:id="@+id/previous_btn"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
+                    android:layout_width="42dp"
+                    android:layout_height="42dp"
                     android:layout_gravity="start|center_vertical"
-                    android:layout_margin="18dp"
+                    android:layout_margin="12dp"
                     android:clickable="true"
-                    android:elevation="8dp"
+                    android:elevation="4dp"
                     android:rotation="180"
-                    android:tint="?attr/colorPrimary"
+                    app:tint="?attr/colorAccent"
                     android:visibility="visible"
+                    android:background="@drawable/square_button"
                     app:backgroundTint="?attr/colorSurface"
+                    android:foreground="@drawable/square_button_ripple"
                     app:fabSize="mini"
                     app:srcCompat="@drawable/ic_arrow_back_whit" />
 
-                <com.google.android.material.floatingactionbutton.FloatingActionButton
+                <ImageButton
                     android:id="@+id/next_btn"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
+                    android:layout_width="42dp"
+                    android:layout_height="42dp"
                     android:layout_gravity="end|center_vertical"
-                    android:layout_margin="18dp"
+                    android:layout_margin="12dp"
                     android:clickable="true"
-                    android:elevation="8dp"
-                    android:tint="?attr/colorPrimary"
+                    android:elevation="4dp"
+                    app:tint="?attr/colorPrimary"
                     android:visibility="visible"
+                    android:background="@drawable/square_button"
                     app:backgroundTint="?attr/colorSurface"
+                    android:foreground="@drawable/square_button_ripple"
                     app:fabSize="mini"
                     app:srcCompat="@drawable/ic_arrow_back_whit" />
             </FrameLayout>

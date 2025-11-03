@@ -369,19 +369,17 @@ class MainActivity : TableExtension(), ElementAdapter.OnElementClickListener2 {
 
         // 3) Navigation (sliding panel) - prefer collapsing if expanded
         if (slidingLayout != null && slidingLayout.panelState == PanelState.EXPANDED) {
+            // Request collapse. Do NOT immediately hide navMenuInclude or disable interception:
+            // let the panel's PanelState listener finish the collapse animation and perform cleanup.
             slidingLayout.setPanelState(PanelState.COLLAPSED)
             if (navBackground != null) Utils.fadeOutAnim(navBackground, 150)
-            navMenuInclude?.visibility = View.GONE
-            // after collapsing, nothing left to intercept -> disable
-            setBackInterceptionEnabled(false)
             return
         }
         // Also handle scenario where nav background is visible but panel not expanded
         if (navBackground?.visibility == View.VISIBLE || navMenuInclude?.visibility == View.VISIBLE) {
             slidingLayout?.setPanelState(PanelState.COLLAPSED)
             if (navBackground != null) Utils.fadeOutAnim(navBackground, 150)
-            navMenuInclude?.visibility = View.GONE
-            setBackInterceptionEnabled(false)
+            // Do not force-hide navMenuInclude or disable interception here; wait for panel listener to clean up.
             return
         }
 
@@ -721,9 +719,9 @@ class MainActivity : TableExtension(), ElementAdapter.OnElementClickListener2 {
         params2.height = bottom + resources.getDimensionPixelSize(R.dimen.nav_bar)
         findViewById<FrameLayout>(R.id.nav_bar_main).layoutParams = params2
 
-        val paramsFAB = findViewById<FloatingActionButton>(R.id.pro_fab).layoutParams as ViewGroup.MarginLayoutParams
+        val paramsFAB = findViewById<ImageButton>(R.id.pro_fab).layoutParams as ViewGroup.MarginLayoutParams
         paramsFAB.bottomMargin = bottom + resources.getDimensionPixelSize(R.dimen.nav_bar) + resources.getDimensionPixelSize(R.dimen.margin)
-        findViewById<FloatingActionButton>(R.id.pro_fab).layoutParams = paramsFAB
+        findViewById<ImageButton>(R.id.pro_fab).layoutParams = paramsFAB
 
         val params3 = findViewById<FloatingActionButton>(R.id.more_btn).layoutParams as ViewGroup.MarginLayoutParams
         params3.bottomMargin = bottom + (resources.getDimensionPixelSize(R.dimen.nav_bar))/2 + (resources.getDimensionPixelSize(R.dimen.title_bar_elevation))

@@ -115,9 +115,9 @@ abstract class InfoExtension : BaseActivity(), View.OnApplyWindowInsetsListener 
                 }
 
                 // Previous/next button visibility
-                findViewById<FloatingActionButton>(R.id.previous_btn).visibility =
+                findViewById<ImageButton>(R.id.previous_btn).visibility =
                     if (elementKey == "hydrogen") View.GONE else View.VISIBLE
-                findViewById<FloatingActionButton>(R.id.next_btn).visibility =
+                findViewById<ImageButton>(R.id.next_btn).visibility =
                     if (elementKey == "oganesson") View.GONE else View.VISIBLE
 
                 updateElementUI(jsonObject)
