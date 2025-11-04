@@ -1068,11 +1068,13 @@
                     <ImageButton
                         android:id="@+id/achievements_btn"
                         style="?android:attr/borderlessButtonStyle"
-                        android:layout_width="42dp"
-                        android:layout_height="42dp"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
                         android:visibility="visible"
+                        android:background="@drawable/gem"
+                        android:backgroundTint="?attr/colorAccent"
                         android:layout_gravity="center_vertical"
-                        app:tint="?attr/colorOnSecondaryContainer"
+                        app:tint="?attr/colorOnPrimary"
                         android:src="@drawable/ic_achievements" />
 
                     <TextView
@@ -1084,7 +1086,7 @@
                         android:drawableStart="@drawable/ic_heart"
                         android:drawableTint="?attr/colorError"
                         android:paddingEnd="24dp"
-                        android:drawablePadding="9dp"
+                        android:drawablePadding="4dp"
                         android:textAlignment="center"
                         android:textColor="?attr/colorOnSurface"
                         android:textAppearance="?attr/textAppearanceSubtitle1"
