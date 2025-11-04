@@ -13,6 +13,7 @@ import android.os.Looper
 import android.text.Editable
 import android.text.TextWatcher
 import android.util.Log
+import android.util.TypedValue
 import android.view.*
 import android.view.GestureDetector.SimpleOnGestureListener
 import android.view.ViewTreeObserver.OnScrollChangedListener
@@ -234,32 +235,177 @@ class MainActivity : TableExtension(), ElementAdapter.OnElementClickListener2 {
         }
     }
 
+    /**
+     * Synchronises the top (columns) and left (rows) number bars with the zoom / pan of the ZoomLayout.
+     *
+     * This method:
+     * - Keeps the existing panning sync (so numbers move with the content).
+     * - Scales the text size of the numbers according to the zoom level so they visually match the zoomed content
+     *   (i.e. when the user zooms in the numbers get larger, when zoomed out they shrink).
+     *
+     * Implementation notes:
+     * - We cache each TextView's base text size in pixels and multiply by zoom.
+     * - The runnable now runs at ~60fps (16ms) which is sufficient and less CPU intensive than 1ms.
+     */
     private fun scrollAdapter() {
         val zoomLay = findViewById<ZoomLayout>(R.id.scrollView)
         val yScroll = findViewById<ScrollView>(R.id.leftBar)
         val xScroll = findViewById<HorizontalScrollView>(R.id.topBar)
         val corner = findViewById<TextView>(R.id.corner)
 
-        val handler = Handler(Looper.getMainLooper())
-        val runnable = object : Runnable {
-            override fun run() {
-                if (zoomLay.zoom < 1) {
-                    yScroll.visibility = View.INVISIBLE
-                    xScroll.visibility = View.INVISIBLE
-                    corner.visibility = View.INVISIBLE
+        val topLin = findViewById<LinearLayout>(R.id.topLin)
+        val leftBarContainer = (findViewById<ScrollView>(R.id.leftBar).getChildAt(0) as? LinearLayout)
+
+        // Collected views + base measurements
+        val topTextViews = ArrayList<TextView>()
+        val topBaseTextPx = ArrayList<Float>()
+        val topBaseWidthPx = ArrayList<Int>()
+
+        val leftTextViews = ArrayList<TextView>()
+        val leftBaseTextPx = ArrayList<Float>()
+        val leftBaseHeightPx = ArrayList<Int>()
+
+        // default cell size (match your xml which used 96dp)
+        val dm = resources.displayMetrics
+        val defaultCellDp = 96f
+        val defaultCellPx = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, defaultCellDp, dm).toInt()
+
+        // Tuning parameters
+        val SMOOTHING_ALPHA = 0.22f           // smoothing factor (0..1). Larger = faster, smaller = smoother
+        val LABEL_SCALE_EXPONENT = 1.15f      // exponent >1 makes labels shrink faster when zoom < 1 (helps match far-out zoom)
+        val MIN_EFFECTIVE_SCALE = 0.12f      // allow labels/cells to become smaller at extreme zoom-out
+        val MIN_TEXT_PX = 8f                 // minimum readable text size (px)
+        val MIN_CELL_FACTOR = 0.25f          // minimum fraction of base width/height to reserve
+
+        // Collect base sizes once layout has happened
+        val initializeBases = {
+            topTextViews.clear()
+            topBaseTextPx.clear()
+            topBaseWidthPx.clear()
+
+            leftTextViews.clear()
+            leftBaseTextPx.clear()
+            leftBaseHeightPx.clear()
+
+            topLin?.let { tl ->
+                for (i in 0 until tl.childCount) {
+                    val v = tl.getChildAt(i)
+                    if (v is TextView) {
+                        topTextViews.add(v)
+                        topBaseTextPx.add(v.textSize)
+                        val measured = v.width.takeIf { it > 0 }
+                        val lpWidth = (v.layoutParams?.width ?: 0).takeIf { it > 0 }
+                        val baseW = measured ?: lpWidth ?: defaultCellPx
+                        topBaseWidthPx.add(baseW)
+                    }
                 }
-                else {
-                    yScroll.visibility = View.VISIBLE
-                    xScroll.visibility = View.VISIBLE
-                    corner.visibility = View.VISIBLE
+            }
+
+            leftBarContainer?.let { lb ->
+                for (i in 0 until lb.childCount) {
+                    val v = lb.getChildAt(i)
+                    if (v is TextView) {
+                        leftTextViews.add(v)
+                        leftBaseTextPx.add(v.textSize)
+                        val measured = v.height.takeIf { it > 0 }
+                        val lpHeight = (v.layoutParams?.height ?: 0).takeIf { it > 0 }
+                        val baseH = measured ?: lpHeight ?: defaultCellPx
+                        leftBaseHeightPx.add(baseH)
+                    }
+                }
+            }
+
+            // Ensure bars visible (we keep them visible now)
+            yScroll.visibility = View.VISIBLE
+            xScroll.visibility = View.VISIBLE
+            corner.visibility = View.VISIBLE
+        }
+
+        // If topLin isn't laid out yet, wait for layout; otherwise initialize immediately
+        if (topLin == null) return
+        topLin.doOnLayout {
+            initializeBases()
+        }
+
+        // Smoothed display state (to avoid low-framerate stepping / jitter)
+        var displayedZoom = try { zoomLay.zoom } catch (_: Exception) { 1f }
+        var displayedPanX = try { zoomLay.panX } catch (_: Exception) { 0f }
+        var displayedPanY = try { zoomLay.panY } catch (_: Exception) { 0f }
+
+        // Use Choreographer for smooth per-frame updates (vs Handler polling)
+        val choreo = Choreographer.getInstance()
+        val frameCallback = object : Choreographer.FrameCallback {
+            override fun doFrame(frameTimeNanos: Long) {
+                // read raw values
+                val targetZoom = try { zoomLay.zoom } catch (_: Exception) { displayedZoom }
+                val targetPanX = try { zoomLay.panX } catch (_: Exception) { displayedPanX }
+                val targetPanY = try { zoomLay.panY } catch (_: Exception) { displayedPanY }
+
+                // Exponential smoothing (low-pass) to make movement smooth
+                displayedZoom += (targetZoom - displayedZoom) * SMOOTHING_ALPHA
+                displayedPanX += (targetPanX - displayedPanX) * SMOOTHING_ALPHA
+                displayedPanY += (targetPanY - displayedPanY) * SMOOTHING_ALPHA
+
+                // Compute effective scale for labels and cell sizes. Use exponent >1 so labels get relatively smaller when zooming far out.
+                var effective = Math.pow(displayedZoom.toDouble(), LABEL_SCALE_EXPONENT.toDouble()).toFloat()
+                if (effective.isNaN() || effective.isInfinite()) effective = displayedZoom
+                if (effective < MIN_EFFECTIVE_SCALE) effective = MIN_EFFECTIVE_SCALE
+
+                // Update top bar widths & text sizes
+                for (i in topTextViews.indices) {
+                    val tv = topTextViews[i]
+                    val baseTextPx = topBaseTextPx.getOrNull(i) ?: tv.textSize
+                    val baseWidthPx = topBaseWidthPx.getOrNull(i) ?: defaultCellPx
+
+                    // New text size proportional to effective scale with a clamp
+                    val newTextPx = (baseTextPx * effective).coerceAtLeast(MIN_TEXT_PX)
+                    tv.setTextSize(TypedValue.COMPLEX_UNIT_PX, newTextPx)
+
+                    // New width proportional to effective scale, but don't go below MIN_CELL_FACTOR * base
+                    val newWidth = (baseWidthPx * effective).toInt().coerceAtLeast((baseWidthPx * MIN_CELL_FACTOR).toInt())
+                    val lp = tv.layoutParams
+                    if (lp.width != newWidth) {
+                        lp.width = newWidth
+                        tv.layoutParams = lp
+                    }
                 }
 
-                yScroll.scrollTo(0, -zoomLay.panY.toInt())
-                xScroll.scrollTo(-zoomLay.panX.toInt(), 0)
-                handler.postDelayed(this, 1)
+                // Update left bar heights & text sizes
+                for (i in leftTextViews.indices) {
+                    val tv = leftTextViews[i]
+                    val baseTextPx = leftBaseTextPx.getOrNull(i) ?: tv.textSize
+                    val baseHeightPx = leftBaseHeightPx.getOrNull(i) ?: defaultCellPx
+
+                    val newTextPx = (baseTextPx * effective).coerceAtLeast(MIN_TEXT_PX)
+                    tv.setTextSize(TypedValue.COMPLEX_UNIT_PX, newTextPx)
+
+                    val newHeight = (baseHeightPx * effective).toInt().coerceAtLeast((baseHeightPx * MIN_CELL_FACTOR).toInt())
+                    val lp = tv.layoutParams
+                    if (lp.height != newHeight) {
+                        lp.height = newHeight
+                        tv.layoutParams = lp
+                    }
+                }
+
+                // Request layout on containers so widths/heights apply smoothly
+                topLin.requestLayout()
+                leftBarContainer?.requestLayout()
+
+                // Pan the bars using the smoothed pan values.
+                // If alignment seems slightly off try dividing or multiplying pan by displayedZoom:
+                // xScroll.scrollTo((-displayedPanX / displayedZoom).toInt(), 0) or * displayedZoom
+                try {
+                    xScroll.scrollTo((-displayedPanX).toInt(), 0)
+                    yScroll.scrollTo(0, (-displayedPanY).toInt())
+                } catch (_: Exception) { }
+
+                // Re-post for next frame
+                choreo.postFrameCallback(this)
             }
         }
-        handler.post(runnable)
+
+        // Start the frame loop (it will keep re-posting itself)
+        choreo.postFrameCallback(frameCallback)
     }
 
 
@@ -369,17 +515,19 @@ class MainActivity : TableExtension(), ElementAdapter.OnElementClickListener2 {
 
         // 3) Navigation (sliding panel) - prefer collapsing if expanded
         if (slidingLayout != null && slidingLayout.panelState == PanelState.EXPANDED) {
-            // Request collapse. Do NOT immediately hide navMenuInclude or disable interception:
-            // let the panel's PanelState listener finish the collapse animation and perform cleanup.
             slidingLayout.setPanelState(PanelState.COLLAPSED)
             if (navBackground != null) Utils.fadeOutAnim(navBackground, 150)
+            navMenuInclude?.visibility = View.GONE
+            // after collapsing, nothing left to intercept -> disable
+            setBackInterceptionEnabled(false)
             return
         }
         // Also handle scenario where nav background is visible but panel not expanded
         if (navBackground?.visibility == View.VISIBLE || navMenuInclude?.visibility == View.VISIBLE) {
             slidingLayout?.setPanelState(PanelState.COLLAPSED)
             if (navBackground != null) Utils.fadeOutAnim(navBackground, 150)
-            // Do not force-hide navMenuInclude or disable interception here; wait for panel listener to clean up.
+            navMenuInclude?.visibility = View.GONE
+            setBackInterceptionEnabled(false)
             return
         }
 
@@ -688,7 +836,7 @@ class MainActivity : TableExtension(), ElementAdapter.OnElementClickListener2 {
 
     private fun proChanges() {
         findViewById<TextView>(R.id.pro_btn).text = getString(R.string.member_btn)
-        findViewById<FloatingActionButton>(R.id.pro_fab).visibility = View.GONE
+        findViewById<ImageButton>(R.id.pro_fab).visibility = View.GONE
     }
 
     //For updating when user purschases PRO Version in ProActivity
