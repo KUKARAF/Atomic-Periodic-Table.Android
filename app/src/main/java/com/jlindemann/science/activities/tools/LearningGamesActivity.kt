@@ -23,6 +23,7 @@ import com.jlindemann.science.model.Achievement
 import com.jlindemann.science.model.AchievementModel
 import com.jlindemann.science.util.LivesManager
 import com.jlindemann.science.util.XpManager
+import com.jlindemann.science.util.StreakManager
 import com.jlindemann.science.views.AnimatedEffectView
 import org.json.JSONArray
 import kotlin.math.roundToInt
@@ -86,34 +87,36 @@ class LearningGamesActivity : BaseActivity() {
         }
 
         questions = generateQuestions(category, totalQuestions)
+        if (questions.isEmpty()) {
+            AlertDialog.Builder(this)
+                .setTitle(getString(R.string.no_questions_title, "Not enough data"))
+                .setMessage("Unable to generate questions for this category — the dataset contains no valid values. Try a different category or check your data files.")
+                .setPositiveButton("OK") { _, _ -> finish() }
+                .setCancelable(false)
+                .show()
+            return
+        }
+
         setupQuestionUI()
         updateLivesCount()
         setupAnswerListeners()
         setupBackButton()
 
         // Register lifecycle-aware OnBackPressedCallback.
-        // For this activity we want to intercept back gestures (show exit dialog) while the quiz is running,
-        // so we enable the callback by default.
         backCallback = object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                // If any in-activity overlay consumes back (e.g. result card), let that handle it first.
                 val consumed = handleBackPress()
                 if (!consumed) {
-                    // No overlay consumed it -> show exit confirmation dialog
                     showExitConfirmationDialog()
                 } else {
-                    // If overlays remain, keep interception enabled, otherwise allow system later
                     backCallback?.isEnabled = anyOverlayOpen() || !hasLeftGame
                 }
             }
         }
         onBackPressedDispatcher.addCallback(this, backCallback!!)
 
-        // Also register the platform OnBackInvoked callback on supported platforms so gestures invoke our logic.
-        // Use the central helper to ensure symmetric behavior on Android 14+.
         setBackInterceptionEnabled(true)
 
-        // Setup background effect view
         val effectOverlay = findViewById<FrameLayout>(R.id.effect_overlay)
         animatedEffectView = AnimatedEffectView(this)
         effectOverlay.addView(
@@ -134,10 +137,15 @@ class LearningGamesActivity : BaseActivity() {
         )
         answerCards.forEachIndexed { index, card ->
             card.setOnClickListener {
-                if (isAnswering && !hasLeftGame && index < questions[currentQuestionIndex].alternatives.size) {
+                if (!this::questions.isInitialized || questions.isEmpty()) return@setOnClickListener
+                if (currentQuestionIndex >= questions.size) return@setOnClickListener
+                val q = questions[currentQuestionIndex]
+                if (index >= q.alternatives.size) return@setOnClickListener
+
+                if (isAnswering && !hasLeftGame) {
                     isAnswering = false
                     timerAnimator?.cancel()
-                    val selectedAnswer = questions[currentQuestionIndex].alternatives[index]
+                    val selectedAnswer = q.alternatives[index]
                     checkAnswer(selectedAnswer)
                 }
             }
@@ -151,7 +159,6 @@ class LearningGamesActivity : BaseActivity() {
     }
 
     override fun onBackPressed() {
-        // Ensure hardware back shows the exit dialog (or closes overlays first)
         showExitConfirmationDialog()
     }
 
@@ -159,7 +166,6 @@ class LearningGamesActivity : BaseActivity() {
         if (leaveDialogShowing || hasLeftGame) return
         leaveDialogShowing = true
 
-        // When showing dialog, ensure we intercept back/gestures so dialog can be handled here.
         setBackInterceptionEnabled(true)
 
         val dialog = AlertDialog.Builder(this)
@@ -167,21 +173,18 @@ class LearningGamesActivity : BaseActivity() {
             .setMessage("Are you sure you want to leave the game? You will lose 5 lives.")
             .setPositiveButton("Leave") { _, _ ->
                 leaveDialogShowing = false
-                // dialog dismissed -> update interception then process leaving
                 setBackInterceptionEnabled(anyOverlayOpen() || !hasLeftGame)
                 leaveGameAndLoseLives()
             }
             .setNegativeButton("Stay") { dialogInterface, _ ->
                 leaveDialogShowing = false
                 dialogInterface.dismiss()
-                // stay in game -> keep interception enabled
                 setBackInterceptionEnabled(anyOverlayOpen() || !hasLeftGame)
             }
             .setCancelable(false)
             .create()
 
         dialog.setOnDismissListener {
-            // Make sure state updated after dialog disappears for any reason
             leaveDialogShowing = false
             setBackInterceptionEnabled(anyOverlayOpen() || !hasLeftGame)
         }
@@ -220,7 +223,6 @@ class LearningGamesActivity : BaseActivity() {
         val questionNumber = findViewById<TextView>(R.id.tv_question_number)
         val grid = findViewById<GridLayout>(R.id.grid_answers)
 
-        // Update question number display
         questionNumber.text = "${currentQuestionIndex + 1}/${questions.size}"
 
         progressBar.visibility = View.VISIBLE
@@ -254,7 +256,6 @@ class LearningGamesActivity : BaseActivity() {
             findViewById<TextView>(answerIds[i]).text = alt
         }
 
-        // Handle radioactive case: only two options, hide 3 and 4
         if (category == "radioactive") {
             findViewById<LinearLayout>(R.id.answer_3).visibility = View.GONE
             findViewById<LinearLayout>(R.id.answer_4).visibility = View.GONE
@@ -379,10 +380,7 @@ class LearningGamesActivity : BaseActivity() {
             if (selectedAnswer == "__TIMEOUT__") {
                 showResultCard(false, selectedAnswer, 0)
             } else if (correct) {
-                // Award game XP (this will apply persistent '+5%' rewards via XpManager.addGameXp)
                 XpManager.addGameXp(this, xpGainedBase)
-
-                // For display, compute actual awarded XP after persistent multiplier
                 val awardedDisplay = (xpGainedBase * XpManager.getXpBonusMultiplier(this)).roundToInt()
                 showResultCard(true, selectedAnswer, awardedDisplay)
             } else {
@@ -447,7 +445,6 @@ class LearningGamesActivity : BaseActivity() {
         updateFlashcardAchievements(finishedGame, finishedGame && gameResults.all { it.wasCorrect })
 
         if (finishedGame) {
-            // Award finish and perfect bonuses using addGameXp so persistent bonus applies
             XpManager.addGameXp(this, xpGameWin)
             if (gameResults.all { it.wasCorrect }) {
                 XpManager.addGameXp(this, xpPerfect)
@@ -456,6 +453,9 @@ class LearningGamesActivity : BaseActivity() {
             val current = prefs.getInt("completed_quizzes", 0)
             prefs.edit().putInt("completed_quizzes", current + 1).apply()
         }
+
+        // Record a play for streak tracking (this will schedule reminders when streak >= 3)
+        StreakManager.recordPlay(this)
 
         val intent = Intent(this, FlashCardActivity::class.java)
         intent.putParcelableArrayListExtra("game_results", ArrayList(gameResults))
@@ -490,17 +490,15 @@ class LearningGamesActivity : BaseActivity() {
             resultSubtext.text = if (livesLost == 1) "Lost 1 life" else "Lost $livesLost lives"
         }
 
-        // When result card is shown, we must intercept back so the user closes the card first
         setBackInterceptionEnabled(true)
     }
 
     private fun hideResultCard() {
         findViewById<FrameLayout>(R.id.result_card_overlay).visibility = View.GONE
-        // After hiding, update interception state; keep interception while game active
         setBackInterceptionEnabled(anyOverlayOpen() || !hasLeftGame)
     }
 
-    // Normalization function to canonicalize labels and answers
+    // Normalization function to canonicalize labels and answers (unit checks removed)
     private fun normalizeLabel(label: String): String {
         return label.trim()
             .replace("-", " ")
@@ -523,18 +521,20 @@ class LearningGamesActivity : BaseActivity() {
 
         fun wrongAnswersFor(fieldSelector: (ElementData) -> String, correct: String): List<String> =
             elements
+                .map { fieldSelector(it) }
+                .map(::normalizeLabel)
                 .filter {
-                    val v = normalizeLabel(fieldSelector(it))
+                    val v = it
                     v != normalizeLabel(correct) && v.isNotBlank() && v != "---"
                 }
-                .map { normalizeLabel(fieldSelector(it)) }
-                .filter { it.isNotBlank() && it != "---" }
                 .distinct()
                 .shuffled()
                 .take(3)
 
-        repeat(count) {
-            val element = elements.filter { it.element !in usedElements }.randomOrNull() ?: elements.random()
+        var attemptsLeft = count * 6
+        while (questions.size < count && attemptsLeft > 0) {
+            attemptsLeft--
+            val element = elements.filter { it.element !in usedElements }.randomOrNull() ?: elements.randomOrNull() ?: break
             usedElements.add(element.element)
 
             val baseXp = getBaseXp(category)
@@ -709,13 +709,13 @@ class LearningGamesActivity : BaseActivity() {
                     Triple(question, correct, (wrongs + correct).distinct().shuffled())
                 }
                 "earth_crust" -> {
-                    val question = "What is the abundance of ${normalizeLabel(element.element)} in the earths crust?"
+                    val question = "What is the abundance of ${normalizeLabel(element.element)} in the earths crust? mg/kg (ppm)"
                     val correct = normalizeLabel(element.earth_crust)
                     val wrongs = wrongAnswersFor({ it.earth_crust }, correct)
                     Triple(question, correct, (wrongs + correct).distinct().shuffled())
                 }
                 "earth_soils" -> {
-                    val question = "What is the abundance of ${normalizeLabel(element.element)} in the earths soils?"
+                    val question = "What is the abundance of ${normalizeLabel(element.element)} in the earths soils? mg/kg (ppm)"
                     val correct = normalizeLabel(element.earth_soils)
                     val wrongs = wrongAnswersFor({ it.earth_soils }, correct)
                     Triple(question, correct, (wrongs + correct).distinct().shuffled())
@@ -728,8 +728,14 @@ class LearningGamesActivity : BaseActivity() {
                         "magnetic_type", "phase_stp", "crystal_structure", "superconducting_point"
                     )
                     val cat = categories.random()
-                    val mixedQ = generateQuestions(cat, 1)[0]
-                    Triple(mixedQ.question, mixedQ.correctAnswer, mixedQ.alternatives)
+                    val mixedQ = generateQuestions(cat, 1).firstOrNull()
+                    if (mixedQ != null) Triple(mixedQ.question, mixedQ.correctAnswer, mixedQ.alternatives)
+                    else {
+                        val question = "What is the symbol for ${normalizeLabel(element.element)}?"
+                        val correct = normalizeLabel(element.short)
+                        val wrongs = wrongAnswersFor({ it.short }, correct)
+                        Triple(question, correct, (wrongs + correct).distinct().shuffled())
+                    }
                 }
                 else -> {
                     val question = "What is the symbol for ${normalizeLabel(element.element)}?"
@@ -738,17 +744,16 @@ class LearningGamesActivity : BaseActivity() {
                     Triple(question, correct, (wrongs + correct).distinct().shuffled())
                 }
             }
-            // Skip question if correct answer is blank or placeholder
+
             if (correct.isBlank() || correct == "---") {
-                return@repeat
+                continue
             }
             val filteredAlternatives = alternatives
                 .map(::normalizeLabel)
                 .filter { it.isNotBlank() && it != "---" }
                 .distinct()
-            // Skip if there are not enough alternatives (at least 2)
             if (filteredAlternatives.size < 2) {
-                return@repeat
+                continue
             }
             questions.add(Question(questionText, correct, filteredAlternatives, baseXp))
         }
@@ -827,7 +832,6 @@ class LearningGamesActivity : BaseActivity() {
                     melting_fahrenheit = obj.optString("element_boiling_fahrenheit"),
                     earth_crust = obj.optString("earth_crust"),
                     earth_soils = obj.optString("earth_soils")
-
                 )
             }
         } catch (e: Exception) {
@@ -837,7 +841,6 @@ class LearningGamesActivity : BaseActivity() {
     }
 
     override fun updateLivesCount() {
-        // MODIFIED: Show "∞" (infinity) if ProPlusVersion == 100
         val proPlusPref = com.jlindemann.science.preferences.ProPlusVersion(this)
         val isInfinite = proPlusPref.getValue() == 100
         val livesTextView = findViewById<TextView>(R.id.tv_lives_count)
@@ -861,22 +864,17 @@ class LearningGamesActivity : BaseActivity() {
     }
 
     private fun updateFlashcardAchievements(finishedGame: Boolean, allCorrect: Boolean) {
-        // Load flashcard achievements only (IDs: 101001, 101002, 101003, 101004)
         val achievementIds = listOf(101001, 101002, 101003, 101004)
         val achievements = ArrayList<Achievement>()
         AchievementModel.getList(this, achievements)
         val achMap = achievements.associateBy { it.id }
 
-        // "Perfect Game": Get all questions correct in a game (ID: 101001)
         if (allCorrect) {
             achMap[101001]?.let {
                 it.incrementProgress(this, 1)
             }
         }
 
-        // "Quiz Enthusiast": Play 10 games (ID: 101002)
-        // "Quiz Master": Play 100 games (ID: 101003)
-        // "Getting the hang of it": Play 500 games (ID: 101004)
         if (finishedGame) {
             listOf(101002, 101003, 101004).forEach { id ->
                 achMap[id]?.let { it.incrementProgress(this, 1) }
@@ -895,7 +893,6 @@ class LearningGamesActivity : BaseActivity() {
         findViewById<TextView>(R.id.tv_question_number).layoutParams = params2
     }
 
-    // Helpers for overlay fade
     private fun fadeInEffectOverlay(effectOverlay: View, duration: Long = 300, onEnd: (() -> Unit)? = null) {
         effectOverlay.alpha = 0f
         effectOverlay.visibility = View.VISIBLE
@@ -917,7 +914,6 @@ class LearningGamesActivity : BaseActivity() {
             .start()
     }
 
-    // Helpers for fading arbitrary views
     private fun fadeOutView(view: View, duration: Long = 300, onEnd: (() -> Unit)? = null) {
         view.animate()
             .alpha(0f)
@@ -938,30 +934,22 @@ class LearningGamesActivity : BaseActivity() {
             .start()
     }
 
-    // Helper: returns true if any overlay that should intercept back is visible
     private fun anyOverlayOpen(): Boolean {
         val resultCard = findViewById<FrameLayout?>(R.id.result_card_overlay)
         return leaveDialogShowing || (resultCard?.visibility == View.VISIBLE)
     }
 
     private fun setBackInterceptionEnabled(enabled: Boolean) {
-        // Keep the OnBackPressedCallback state in sync with requested enabled flag.
         backCallback?.isEnabled = enabled
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             if (enabled) {
-                // If not already registered, register a platform callback that forwards to the
-                // activity's OnBackPressedDispatcher (so both gesture and button use the same path).
                 if (onBackInvokedCb == null) {
                     onBackInvokedCb = android.window.OnBackInvokedCallback {
-                        // Always run UI work on the main thread.
                         handler.post {
                             try {
-                                // Forward to the OnBackPressedDispatcher which will call the existing
-                                // OnBackPressedCallback(s) (that show dialogs / dismiss overlays).
                                 onBackPressedDispatcher.onBackPressed()
                             } catch (e: Exception) {
-                                // Fallback: if dispatcher fails, mirror behavior.
                                 val consumed = handleBackPress()
                                 if (!consumed) showExitConfirmationDialog()
                             }
@@ -973,7 +961,6 @@ class LearningGamesActivity : BaseActivity() {
                     )
                 }
             } else {
-                // Unregister when interception is explicitly disabled.
                 if (onBackInvokedCb != null) {
                     try {
                         onBackInvokedDispatcher.unregisterOnBackInvokedCallback(onBackInvokedCb!!)
@@ -984,14 +971,11 @@ class LearningGamesActivity : BaseActivity() {
         }
     }
 
-    // Close overlays (dialog or result card) if visible; return true when consumed
     private fun handleBackPress(): Boolean {
         val resultCard = findViewById<FrameLayout>(R.id.result_card_overlay)
 
         if (leaveDialogShowing) {
-            // If the leave dialog is showing, dismiss by toggling flag and let dialog listeners handle actual leaving.
             leaveDialogShowing = false
-            // Keep interception enabled while game is active
             setBackInterceptionEnabled(anyOverlayOpen() || !hasLeftGame)
             return true
         }
@@ -1005,15 +989,12 @@ class LearningGamesActivity : BaseActivity() {
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
 
-        // Ensure system UI flags are correct after orientation change
         findViewById<FrameLayout>(R.id.view_learn).systemUiVisibility =
             View.SYSTEM_UI_FLAG_LAYOUT_STABLE or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
 
-        // Re-attach animatedEffectView to overlay to ensure it's sized to the new orientation
         try {
             val effectOverlay = findViewById<FrameLayout>(R.id.effect_overlay)
             if (this::animatedEffectView.isInitialized) {
-                // remove and re-add to ensure layout params match new orientation / size
                 effectOverlay.removeView(animatedEffectView)
                 effectOverlay.addView(
                     animatedEffectView,
@@ -1027,9 +1008,7 @@ class LearningGamesActivity : BaseActivity() {
             e.printStackTrace()
         }
 
-        // Recalculate any UI state that might need to be refreshed
         updateLivesCount()
-        // Refresh current question UI without resetting state
         try {
             if (!hasLeftGame && currentQuestionIndex < questions.size) {
                 setupQuestionUI()

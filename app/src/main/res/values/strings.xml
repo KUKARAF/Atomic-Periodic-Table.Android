@@ -490,5 +490,7 @@
     <string name="hardness_properties" translatable="false">Hardness Properties</string>
     <string name="get_pro_short" translatable="false">PRO</string>
 
-
+    <string name="streak_notification_title" translatable="false">Keep your %1$d-day streak!</string>
+    <string name="streak_notification_body" translatable="false">Play today to save your %1$d-day streak.</string>
+    <string name="no_questions_title" translatable="false">Not enough data</string>
 </resources>

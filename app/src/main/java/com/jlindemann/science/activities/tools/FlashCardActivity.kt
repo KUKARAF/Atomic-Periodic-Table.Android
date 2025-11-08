@@ -14,6 +14,7 @@ import com.jlindemann.science.R
 import com.jlindemann.science.activities.BaseActivity
 import com.jlindemann.science.util.LivesManager
 import com.jlindemann.science.util.XpManager
+import com.jlindemann.science.util.StreakManager
 import java.util.concurrent.TimeUnit
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
@@ -201,9 +202,37 @@ class FlashCardActivity : BaseActivity() {
             onBackPressed()
         }
 
-        findViewById<ImageButton>(R.id.achievements_btn).setOnClickListener {
+        val achievementsBtn = findViewById<ImageButton>(R.id.achievements_btn)
+        achievementsBtn.setOnClickListener {
             val intent = Intent(this, UserActivity::class.java)
             startActivity(intent)
+        }
+
+        // Add streak badge (programmatically) to the tools_layout to the right of the achievements button
+        try {
+            val toolsLayout = findViewById<LinearLayout>(R.id.tools_layout)
+            val livesTextView = findViewById<TextView>(R.id.tv_lives_count)
+            // create badge
+            val streakView = TextView(this).apply {
+                id = resources.getIdentifier("streak_count_text", "id", packageName).takeIf { it != 0 }
+                    ?: View.generateViewId()
+                val padH = resources.getDimensionPixelSize(R.dimen.padding_small)
+                val padV = resources.getDimensionPixelSize(R.dimen.padding_tiny)
+                setPadding(padH, padV, padH, padV)
+                setTextColor(resources.getColor(android.R.color.white, theme))
+                textSize = 12f
+                setBackgroundResource(R.drawable.streak_badge_background)
+                visibility = View.GONE
+                // make it clickable to open achievements/user screen
+                setOnClickListener {
+                    startActivity(Intent(this@FlashCardActivity, UserActivity::class.java))
+                }
+            }
+            // Insert just before the lives count so it appears to the right of achievements_btn
+            val insertIndex = if (toolsLayout.indexOfChild(livesTextView) >= 0) toolsLayout.indexOfChild(livesTextView) else toolsLayout.childCount
+            toolsLayout.addView(streakView, insertIndex)
+        } catch (_: Exception) {
+            // ignore if layout doesn't match; we still function without badge
         }
 
         //Add value to most used:
@@ -274,6 +303,8 @@ class FlashCardActivity : BaseActivity() {
         createdCategoryRows.clear()
 
         val inflater = LayoutInflater.from(this)
+        // detect pro status once so we can indicate disabled state for level 10 if needed
+        val isProUser = checkProPlusStatus()
         for (boxSpec in levelBoxesSpec) {
             val boxView = inflater.inflate(R.layout.level_box, container, false)
             val titleView = boxView.findViewById<TextView>(R.id.level_box_title)
@@ -319,12 +350,13 @@ class FlashCardActivity : BaseActivity() {
             }
 
             // Setup rewards if this box contains reward levels (10, 15, 20)
+            // Show all rewards, but level 10 will be displayed disabled for non-PRO+ users
             val rewardLevelsInBox = REWARD_LEVELS.filter { it in boxSpec.range }
             rewardsButtons.removeAllViews()
             if (rewardLevelsInBox.isNotEmpty()) {
                 // show rewards container; each reward is shown as a non-clickable button-like view (styled)
                 rewardsContainer.visibility = View.VISIBLE
-                val userLevel = XpManager.getLevel(XpManager.getXp(this))
+                // Make label for rewards more explicit: "PRO+ Rewards" is prefixed on each reward label
                 for (rl in rewardLevelsInBox) {
                     // Inflate the stylised reward_button layout
                     val rewardView = inflater.inflate(R.layout.reward_button, rewardsButtons, false)
@@ -333,7 +365,8 @@ class FlashCardActivity : BaseActivity() {
                     val text = rewardView.findViewById<TextView>(R.id.reward_button_text)
                     val checkIcon = rewardView.findViewById<ImageView>(R.id.reward_check_icon)
 
-                    text.text = getString(R.string.reward_5pct_title)
+                    // Show the label with PRO+ hint — display "PRO+ Rewards" as requested
+                    text.text = "PRO+ Rewards: ${getString(R.string.reward_5pct_title)}"
                     val claimed = isRewardClaimed(rl)
 
                     if (claimed) {
@@ -348,6 +381,15 @@ class FlashCardActivity : BaseActivity() {
                     // rewards are visual only here (auto-applied) so don't allow click
                     rewardView.isClickable = false
                     rewardView.isFocusable = true // accessible
+
+                    // If this is level 10 and user isn't PRO+, present as disabled (visible but inactive)
+                    if (rl == 10 && !isProUser) {
+                        // visually indicate disabled; actual enabling/claiming is guarded elsewhere
+                        rewardView.isEnabled = false
+                        rewardView.alpha = 0.35f
+                    } else {
+                        rewardView.isEnabled = true
+                    }
 
                     rewardsButtons.addView(rewardView)
                 }
@@ -381,6 +423,8 @@ class FlashCardActivity : BaseActivity() {
      * This method is idempotent (it checks if reward already claimed).
      */
     private fun applyRewardIfNeeded(level: Int) {
+        if (level == 10 && !checkProPlusStatus()) return
+
         if (isRewardClaimed(level)) return
         // only apply when user has actually reached the level
         val userLevel = XpManager.getLevel(XpManager.getXp(this))
@@ -417,6 +461,8 @@ class FlashCardActivity : BaseActivity() {
         updateCategoryBoxes()
         updateXpAndLevelStats()
         setProFabVisibilityGoneIfProValue100()
+        refreshStreakDisplay()
+
         val gameFinished = intent.getBooleanExtra("game_finished", false)
         val results = intent.getParcelableArrayListExtra<GameResultItem>("game_results")
         val totalQuestions = intent.getIntExtra("total_questions", results?.size ?: 0)
@@ -432,6 +478,22 @@ class FlashCardActivity : BaseActivity() {
 
         // Start live polls so UI updates dynamically
         startLivesPolling()
+    }
+
+    private fun refreshStreakDisplay() {
+        try {
+            val toolsLayout = findViewById<LinearLayout>(R.id.tools_layout)
+            val streakViewId = resources.getIdentifier("streak_count_text", "id", packageName)
+            val streakView = if (streakViewId != 0) findViewById<TextView?>(streakViewId) else null
+            if (streakView == null) return
+            val streak = StreakManager.getCurrentStreak(this)
+            if (streak <= 0) {
+                streakView.visibility = View.GONE
+            } else {
+                streakView.visibility = View.VISIBLE
+                streakView.text = streak.toString()
+            }
+        } catch (_: Exception) {}
     }
 
     override fun onPause() {
