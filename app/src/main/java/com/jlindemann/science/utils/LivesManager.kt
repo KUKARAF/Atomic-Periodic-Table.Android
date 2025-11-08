@@ -2,20 +2,38 @@ package com.jlindemann.science.util
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import com.jlindemann.science.activities.tools.LivesRefillWorker
+import com.jlindemann.science.util.NotificationHelper
 import com.jlindemann.science.preferences.ProVersion
 import com.jlindemann.science.preferences.ProPlusVersion
+import java.util.concurrent.TimeUnit
+import kotlin.math.max
 
 object LivesManager {
     private const val PREFS_NAME = "lives_prefs"
     private const val LIVES_KEY = "lives_count"
     private const val LAST_REFILL_KEY = "last_refill_time"
+
+    // Notification / threshold prefs (kept alongside lives prefs)
+    private const val NOTIF_PREFS = "lives_notifications_prefs"
+    private const val PREF_KEY_WAS_UNDER_10 = "was_under_10"
+
     private const val DEFAULT_MAX_LIVES = 30
     private const val PRO_MAX_LIVES = 60
     private const val REFILL_AMOUNT = 5
     private const val REFILL_INTERVAL_MS = 10 * 60 * 1000L // 10 min
 
+    // WorkManager unique name
+    private const val WORK_UNIQUE_NAME = "lives_refill_worker"
+
     private fun getPrefs(context: Context): SharedPreferences =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+    private fun getNotifPrefs(context: Context): SharedPreferences =
+        context.getSharedPreferences(NOTIF_PREFS, Context.MODE_PRIVATE)
 
     /**
      * Determines max lives based on user tier (Default, Pro, ProPlus).
@@ -45,6 +63,12 @@ object LivesManager {
         // If we've filled to max, reset last refill time so timer doesn't keep running
         if (value >= maxLives && maxLives != Int.MAX_VALUE) {
             getPrefs(context).edit().putLong(LAST_REFILL_KEY, System.currentTimeMillis()).apply()
+            // If we filled to max and previously were under threshold, send/clear notification flag now
+            if (wasUnderThreshold(context) && maxLives != Int.MAX_VALUE) {
+                // In-app call: notify user immediately that lives are full again
+                NotificationHelper.sendLivesRefilledNotification(context)
+                clearUnderThresholdFlag(context)
+            }
         }
     }
 
@@ -60,6 +84,12 @@ object LivesManager {
             if (prefs.getLong(LAST_REFILL_KEY, 0L) == 0L) {
                 prefs.edit().putLong(LAST_REFILL_KEY, System.currentTimeMillis()).apply()
             }
+            // If user went under threshold (strictly < 10), mark it so background worker can notify later
+            if (newLives < 10) {
+                markUnderThreshold(context)
+            }
+            // Ensure background worker is scheduled so refills/notifications happen when app not running
+            ensureRefillWorkerScheduled(context)
             true
         } else {
             false
@@ -78,6 +108,9 @@ object LivesManager {
         if (prefs.getLong(LAST_REFILL_KEY, 0L) == 0L) {
             prefs.edit().putLong(LAST_REFILL_KEY, System.currentTimeMillis()).apply()
         }
+        if (newLives < 10) markUnderThreshold(context)
+        // Ensure background worker is scheduled
+        ensureRefillWorkerScheduled(context)
         return true
     }
 
@@ -88,13 +121,18 @@ object LivesManager {
      * NOTE: if LAST_REFILL_KEY is missing (0) we try to recover reasonably:
      * - If lives == 0 we assume at least one interval has passed (so user gets immediate refill).
      * - Otherwise we initialize baseline to now and do not refill immediately.
+     *
+     * Also: if refills bring lives back to full and the user had previously been under 10,
+     * a notification is sent (and the flag cleared). This ensures the user is notified either
+     * from in-app polling or from the background worker (the worker also calls this same method).
      */
     fun refillLivesIfNeeded(context: Context): Boolean {
         val prefs = getPrefs(context)
         val maxLives = getMaxLives(context)
         if (maxLives == Int.MAX_VALUE) return false // Unlimited, nothing to refill
 
-        var lives = getLives(context)
+        val livesBefore = getLives(context)
+        var lives = livesBefore
         var lastRefill = prefs.getLong(LAST_REFILL_KEY, 0L)
         val now = System.currentTimeMillis()
 
@@ -117,6 +155,12 @@ object LivesManager {
         // If lives already at or above max, reset baseline to now and return
         if (lives >= maxLives) {
             prefs.edit().putLong(LAST_REFILL_KEY, now).apply()
+            // clear threshold flag if somehow full
+            if (wasUnderThreshold(context)) {
+                // user reached full while app running; notify and clear flag
+                NotificationHelper.sendLivesRefilledNotification(context)
+                clearUnderThresholdFlag(context)
+            }
             return false
         }
 
@@ -130,6 +174,15 @@ object LivesManager {
                 .putInt(LIVES_KEY, newLives)
                 .putLong(LAST_REFILL_KEY, advancedRefillTime)
                 .apply()
+
+            // If we have now reached full and user had been under threshold, notify and clear flag
+            if (newLives >= maxLives && wasUnderThreshold(context)) {
+                NotificationHelper.sendLivesRefilledNotification(context)
+                clearUnderThresholdFlag(context)
+            }
+
+            // If refills happened, ensure worker remains scheduled
+            ensureRefillWorkerScheduled(context)
             return newLives > lives
         }
         return false
@@ -144,10 +197,7 @@ object LivesManager {
         val now = System.currentTimeMillis()
         // If baseline is not set:
         if (lastRefill == 0L) {
-            // Previously we returned 0 when lives == 0 which causes confusing UI ("0 seconds").
-            // Return a full interval here to indicate the countdown until the first refill,
-            // which matches how refillLivesIfNeeded recovers missing baseline (it treats missing baseline for 0 lives
-            // as if one interval had already elapsed).
+            // Return a full interval here to indicate the countdown until the first refill.
             return REFILL_INTERVAL_MS
         }
         val timeSinceLast = now - lastRefill
@@ -161,5 +211,45 @@ object LivesManager {
 
     fun getRefillIntervalMs(context: Context): Long {
         return REFILL_INTERVAL_MS
+    }
+
+    // --- Notification / worker helpers ---
+
+    /**
+     * Mark that the user has been under the 10-lives threshold. Stored in separate prefs so background
+     * worker and app agree on state.
+     */
+    private fun markUnderThreshold(context: Context) {
+        val p = getNotifPrefs(context)
+        p.edit().putBoolean(PREF_KEY_WAS_UNDER_10, true).apply()
+    }
+
+    private fun clearUnderThresholdFlag(context: Context) {
+        val p = getNotifPrefs(context)
+        p.edit().putBoolean(PREF_KEY_WAS_UNDER_10, false).apply()
+    }
+
+    fun wasUnderThreshold(context: Context): Boolean {
+        val p = getNotifPrefs(context)
+        return p.getBoolean(PREF_KEY_WAS_UNDER_10, false)
+    }
+
+    /**
+     * Schedule a periodic WorkManager job (idempotent) that runs in background to call refill logic
+     * and fire notifications even when the app is not in foreground.
+     *
+     * This should be invoked early in app lifetime (Application.onCreate) or when lives are modified.
+     */
+    fun ensureRefillWorkerScheduled(context: Context) {
+        try {
+            val wm = WorkManager.getInstance(context.applicationContext)
+            // Minimum periodic interval supported is 15 minutes.
+            val request = PeriodicWorkRequestBuilder<LivesRefillWorker>(15, TimeUnit.MINUTES)
+                .setInitialDelay(5, TimeUnit.MINUTES)
+                .build()
+            wm.enqueueUniquePeriodicWork(WORK_UNIQUE_NAME, ExistingPeriodicWorkPolicy.KEEP, request)
+        } catch (t: Throwable) {
+            t.printStackTrace()
+        }
     }
 }

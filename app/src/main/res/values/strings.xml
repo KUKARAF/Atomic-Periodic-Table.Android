@@ -2,7 +2,7 @@
     <string name="app_name">Atomic</string>
 
     <string name="personalization_settings">Personalization</string>
-    <string name="app_version" translatable="false">v4.3.0m-Build.179</string>
+    <string name="app_version" translatable="false">v4.3.1m-Build.185</string>
     <string name="next_sale_start" translatable="false" >2024/08/05</string>
     <string name="next_sale_end" translatable="false" >2024/09/15</string>
 
@@ -454,6 +454,11 @@
     <string name="melting_point_celsius" translatable="false">Melting Point (°C):</string>
     <string name="melting_point_fahrenheit" translatable="false">Melting Point (°F):</string>
     <string name="melting_point_kelvin" translatable="false">Melting Point (Kelvin):</string>
+    <string name="rewards_available" translatable="false">Rewards:</string>
+    <string name="level_range_format" translatable="false">Level %1$d</string>
+    <string name="reward_5pct_title" translatable="false">+5% XP bonus</string>
+    <string name="bonus_xp" translatable="false">+0% bonus active</string>
+
 
 
     <string name="pro_plus_badge" >PRO+</string>

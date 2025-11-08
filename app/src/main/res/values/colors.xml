@@ -10,6 +10,9 @@
     <color name="colorLightRippleItem">#A81B94E4</color>
     <color name="colorLightChipSurface">#EBEBEB</color>
 
+    <color name="reward_button_end">#5FA8FF</color>
+    <color name="reward_button_stroke">#33FFFFFF</color>
+
     <color name="element_box_light">#D9E2FF</color>
     <color name="element_box_dark">#404659</color>
 

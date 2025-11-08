@@ -6,6 +6,7 @@ import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.app.AlertDialog
 import android.content.Intent
+import android.content.res.Configuration
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
@@ -24,7 +25,6 @@ import com.jlindemann.science.util.LivesManager
 import com.jlindemann.science.util.XpManager
 import com.jlindemann.science.views.AnimatedEffectView
 import org.json.JSONArray
-import java.io.IOException
 import kotlin.math.roundToInt
 
 class LearningGamesActivity : BaseActivity() {
@@ -375,12 +375,16 @@ class LearningGamesActivity : BaseActivity() {
                 }
             }
 
-            val xpGained = if (selectedAnswer == "__TIMEOUT__" || !correct) 0 else (q.baseXp * getXpMultiplier()).roundToInt()
+            val xpGainedBase = if (selectedAnswer == "__TIMEOUT__" || !correct) 0 else (q.baseXp * getXpMultiplier()).roundToInt()
             if (selectedAnswer == "__TIMEOUT__") {
                 showResultCard(false, selectedAnswer, 0)
             } else if (correct) {
-                XpManager.addXp(this, xpGained)
-                showResultCard(true, selectedAnswer, xpGained)
+                // Award game XP (this will apply persistent '+5%' rewards via XpManager.addGameXp)
+                XpManager.addGameXp(this, xpGainedBase)
+
+                // For display, compute actual awarded XP after persistent multiplier
+                val awardedDisplay = (xpGainedBase * XpManager.getXpBonusMultiplier(this)).roundToInt()
+                showResultCard(true, selectedAnswer, awardedDisplay)
             } else {
                 showResultCard(false, selectedAnswer, 0)
             }
@@ -443,9 +447,10 @@ class LearningGamesActivity : BaseActivity() {
         updateFlashcardAchievements(finishedGame, finishedGame && gameResults.all { it.wasCorrect })
 
         if (finishedGame) {
-            XpManager.addXp(this, xpGameWin)
+            // Award finish and perfect bonuses using addGameXp so persistent bonus applies
+            XpManager.addGameXp(this, xpGameWin)
             if (gameResults.all { it.wasCorrect }) {
-                XpManager.addXp(this, xpPerfect)
+                XpManager.addGameXp(this, xpPerfect)
             }
             val prefs = getSharedPreferences("game_stats", MODE_PRIVATE)
             val current = prefs.getInt("completed_quizzes", 0)
@@ -879,7 +884,6 @@ class LearningGamesActivity : BaseActivity() {
         }
     }
 
-
     override fun onApplySystemInsets(top: Int, bottom: Int, left: Int, right: Int) {
         val params = findViewById<FrameLayout>(R.id.common_title_back_learn).layoutParams as ViewGroup.LayoutParams
         params.height = top + resources.getDimensionPixelSize(R.dimen.title_bar)
@@ -996,6 +1000,41 @@ class LearningGamesActivity : BaseActivity() {
             return true
         }
         return false
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+
+        // Ensure system UI flags are correct after orientation change
+        findViewById<FrameLayout>(R.id.view_learn).systemUiVisibility =
+            View.SYSTEM_UI_FLAG_LAYOUT_STABLE or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+
+        // Re-attach animatedEffectView to overlay to ensure it's sized to the new orientation
+        try {
+            val effectOverlay = findViewById<FrameLayout>(R.id.effect_overlay)
+            if (this::animatedEffectView.isInitialized) {
+                // remove and re-add to ensure layout params match new orientation / size
+                effectOverlay.removeView(animatedEffectView)
+                effectOverlay.addView(
+                    animatedEffectView,
+                    FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                        FrameLayout.LayoutParams.MATCH_PARENT
+                    )
+                )
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        // Recalculate any UI state that might need to be refreshed
+        updateLivesCount()
+        // Refresh current question UI without resetting state
+        try {
+            if (!hasLeftGame && currentQuestionIndex < questions.size) {
+                setupQuestionUI()
+            }
+        } catch (_: Exception) { }
     }
 
     override fun onDestroy() {
