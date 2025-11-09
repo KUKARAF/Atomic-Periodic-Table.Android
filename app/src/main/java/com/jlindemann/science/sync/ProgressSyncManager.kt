@@ -152,11 +152,15 @@ object ProgressSyncManager {
     }
 
     /**
-     * Merge strategy:
-     * - For xp: keep whichever xp is larger (existing behavior).
-     * - For achievements/statistics/streak: if cloud.xp >= localXp, prefer cloud values; otherwise prefer local.
+     * Merge strategy (improved):
+     * - For xp: keep the larger xp (cloud or local).
+     * - For achievements/statistics: per-item, take the maximum progress between local and cloud.
+     * - For streak: take the maximum of local and cloud.
      *
-     * When updating local storage, we only increase per-item progress (we never decrease local progress).
+     * After computing merged state, write it to cloud and then update local storage:
+     * - XP/local level will be updated to mergedXp (only increase local if merged is greater).
+     * - Achievements/statistics are increased locally to match merged values (never reduced).
+     * - Streak is increased locally if merged is greater.
      */
     fun mergeAndUploadLocalProgress(context: Context, uid: String, onComplete: ((Boolean) -> Unit)? = null) {
         // read local xp/level
@@ -183,59 +187,78 @@ object ProgressSyncManager {
 
         loadCloudProgress(uid) { cloud ->
             try {
-                val (mergedXp, mergedLevel) = if (cloud == null) {
-                    // cloud empty -> use local values
-                    Pair(localXp.toLong(), localLevel)
-                } else {
-                    val cloudXp = cloud.xp
-                    if (cloudXp >= localXp.toLong()) {
-                        Pair(cloudXp, cloud.level)
-                    } else {
-                        Pair(localXp.toLong(), localLevel)
-                    }
+                // merged XP is per-item max
+                val cloudXp = cloud?.xp ?: 0L
+                val mergedXp: Long = maxOf(localXp.toLong(), cloudXp)
+                // determine merged level from XP to ensure consistency
+                val mergedLevel: Int = try {
+                    XpManager.getLevel(mergedXp.toInt())
+                } catch (_: Throwable) {
+                    // fallback: prefer cloud level if available, else local
+                    cloud?.level ?: localLevel
                 }
 
-                // Decide merged achievements & statistics & streak
-                val mergedAchievements: List<Achievement> = if (cloud?.achievements != null && cloud.xp >= localXp.toLong()) {
-                    // prefer cloud achievements
-                    val localById = localAchievements.associateBy { it.id }
-                    cloud.achievements.map { ca ->
-                        val local = localById[ca.id]
-                        if (local != null) {
-                            Achievement(local.id, local.title, local.description, ca.progress, local.maxProgress)
-                        } else {
-                            Achievement(ca.id, "achievement_${ca.id}", "", ca.progress, ca.maxProgress ?: ca.progress)
-                        }
-                    }
-                } else {
-                    // prefer local achievements
-                    localAchievements
+                // Merge achievements: per-id max progress and pick sensible metadata
+                val localById = localAchievements.associateBy { it.id }.toMutableMap()
+                val cloudById = cloud?.achievements?.associateBy { it.id } ?: emptyMap()
+
+                // collect all ids
+                val allIds = (localById.keys + cloudById.keys).toSet()
+                val mergedAchievements = allIds.map { id ->
+                    val local = localById[id]
+                    val cloudA = cloudById[id]
+
+                    val localProg = local?.progress ?: 0
+                    val cloudProg = cloudA?.progress ?: 0
+                    val prog = maxOf(localProg, cloudProg)
+
+                    val maxProgress = maxOf(local?.maxProgress ?: prog, cloudA?.maxProgress ?: prog)
+                    val title = local?.title ?: ("achievement_$id")
+                    val description = local?.description ?: ""
+
+                    Achievement(id, title, description, prog, maxProgress)
                 }
 
-                val mergedStatistics: List<Statistics> = if (cloud?.statistics != null && cloud.xp >= localXp.toLong()) {
-                    val localById = localStatistics.associateBy { it.id }
-                    cloud.statistics.map { (id, progLong) ->
-                        val local = localById[id]
-                        if (local != null) {
-                            Statistics(local.id, local.title, progLong.toInt())
-                        } else {
-                            Statistics(id, "stat_$id", progLong.toInt())
-                        }
-                    }
-                } else {
-                    localStatistics
+                // Merge statistics: per-id max progress
+                val localStatsById = localStatistics.associateBy { it.id }.toMutableMap()
+                val cloudStatsById = cloud?.statistics ?: emptyMap()
+                val allStatIds = (localStatsById.keys + cloudStatsById.keys).toSet()
+                val mergedStatistics = allStatIds.map { id ->
+                    val local = localStatsById[id]
+                    val cloudProgLong = cloudStatsById[id] ?: 0L
+                    val cloudProg = cloudProgLong.toInt()
+                    val localProg = local?.progress ?: 0
+                    val prog = maxOf(localProg, cloudProg)
+                    val title = local?.title ?: "stat_$id"
+                    Statistics(id, title, prog)
                 }
 
-                val mergedStreak: Int = if (cloud?.streak != null && cloud.xp >= localXp.toLong()) {
-                    cloud.streak.toInt()
-                } else {
-                    localStreak
-                }
+                // Merge streak: use max
+                val mergedStreak: Int = maxOf(localStreak, (cloud?.streak?.toInt() ?: 0))
 
                 // persist merged to cloud (write full state)
                 saveFullProgressToCloud(uid, mergedXp, mergedLevel, mergedAchievements, mergedStatistics, mergedStreak) { success, _ ->
                     if (success) {
-                        // update local to merged (only increase progress; do not reduce)
+                        try {
+                            // Update local XP if mergedXp is greater than local
+                            if (mergedXp > localXp.toLong()) {
+                                try {
+                                    // Prefer an explicit setter if available
+                                    XpManager.setXp(context, mergedXp.toInt())
+                                } catch (t: Throwable) {
+                                    // Fallback to adding the difference if setXp not available
+                                    try {
+                                        val diff = (mergedXp - localXp.toLong()).toInt()
+                                        if (diff > 0) XpManager.addXp(context, diff)
+                                    } catch (_: Throwable) {
+                                        Log.w(TAG, "Unable to update local XP to merged value", t)
+                                    }
+                                }
+                            }
+                        } catch (t: Throwable) {
+                            Log.w(TAG, "Failed to update local XP", t)
+                        }
+
                         // Achievements: for each merged achievement, if merged.progress > current local progress -> increment by diff
                         val localByIdMutable = localAchievements.associateBy { it.id }.toMutableMap()
                         mergedAchievements.forEach { mergedAch ->
@@ -249,6 +272,7 @@ object ProgressSyncManager {
                                     local.incrementProgress(context, diff)
                                 }
                             } else {
+                                // create new and set progress
                                 val newAch = Achievement(mergedAch.id, mergedAch.title, mergedAch.description, 0, mergedAch.maxProgress)
                                 val diff = mergedAch.progress - 0
                                 if (diff > 0) newAch.incrementProgress(context, diff)
@@ -256,9 +280,9 @@ object ProgressSyncManager {
                         }
 
                         // Statistics: similar - only increase via incrementProgress
-                        val localStatsById = localStatistics.associateBy { it.id }.toMutableMap()
+                        val localStatsByIdMutable = localStatistics.associateBy { it.id }.toMutableMap()
                         mergedStatistics.forEach { mergedStat ->
-                            val local = localStatsById[mergedStat.id]
+                            val local = localStatsByIdMutable[mergedStat.id]
                             if (local != null) {
                                 val current = local.progress
                                 val target = mergedStat.progress

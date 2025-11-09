@@ -67,6 +67,17 @@ object XpManager {
     }
 
     /**
+     * Set XP to an explicit value (overwrites stored XP).
+     * Used by sync/merge code when cloud xp should replace local xp.
+     * Negative values will be clamped to 0.
+     */
+    fun setXp(context: Context, xp: Int) {
+        val safe = if (xp < 0) 0 else xp
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        prefs.edit().putInt(XP_KEY, safe).apply()
+    }
+
+    /**
      * Add XP to the persistent store WITHOUT applying any reward multiplier.
      * Use this for administrative/manual XP adjustments or when you don't want
      * the game-completion multiplier applied.
