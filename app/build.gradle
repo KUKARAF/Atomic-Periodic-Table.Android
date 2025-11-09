@@ -24,7 +24,7 @@ android {
         applicationId "com.jlindemann.science"
         minSdkVersion 24
         targetSdkVersion 36
-        versionCode 186
+        versionCode 189
         versionName "4.3.1m"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }

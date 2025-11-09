@@ -26,7 +26,12 @@ import android.os.Looper
 import android.view.WindowManager
 import android.widget.PopupWindow
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.widget.AppCompatButton
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount
+import com.google.android.gms.common.api.ApiException
+import com.google.android.gms.tasks.Task
 import com.jlindemann.science.activities.UserActivity
 import com.jlindemann.science.activities.settings.ProActivity
 import com.jlindemann.science.activities.settings.SubmitActivity
@@ -34,6 +39,8 @@ import com.jlindemann.science.preferences.MostUsedToolPreference
 import com.jlindemann.science.preferences.ProPlusVersion
 import com.jlindemann.science.preferences.ProVersion
 import com.jlindemann.science.utils.StreakManager
+import com.jlindemann.science.auth.AuthManager
+import com.jlindemann.science.sync.ProgressSyncManager
 
 class FlashCardActivity : BaseActivity() {
 
@@ -55,6 +62,10 @@ class FlashCardActivity : BaseActivity() {
     private var cachedLives: Int = -1
     private var livesPolling = false
     private val LIVES_POLL_INTERVAL_MS = 1000L // poll every second
+
+    //Sync & Sign-in
+    private var tvEnableSyncLogin: TextView? = null
+    private var tvSyncStatus: TextView? = null
 
     private val livesPollRunnable = object : Runnable {
         override fun run() {
@@ -198,6 +209,29 @@ class FlashCardActivity : BaseActivity() {
                 }
             }
         })
+
+        tvEnableSyncLogin = findViewById<TextView?>(R.id.enable_sync_login)
+        tvSyncStatus = findViewById<TextView?>(R.id.sync_status)
+
+        // enable_sync_login should start Google sign-in for ALL users
+        tvEnableSyncLogin?.setOnClickListener {
+            val webClientId = getString(R.string.web_client_id)
+            val googleClient = AuthManager.buildGoogleSignInClient(this, webClientId)
+            val signInIntent = googleClient.signInIntent
+            signInLauncher.launch(signInIntent)
+        }
+
+        // update login visibility immediately
+        updateLoginUiState()
+
+        // show sync_status only for Pro / Pro+ users; always hide for non-pro
+        val isProOrProPlus = (ProVersion(this).getValue() == 100) || (ProPlusVersion(this).getValue() == 100)
+        if (isProOrProPlus) {
+            tvSyncStatus?.visibility = View.VISIBLE
+            tvSyncStatus?.text = "" // initialize empty
+        } else {
+            tvSyncStatus?.visibility = View.GONE
+        }
 
         findViewById<ImageButton>(R.id.back_btn_fla).setOnClickListener {
             onBackPressed()
@@ -452,6 +486,15 @@ class FlashCardActivity : BaseActivity() {
 
     //For updating when user purchases PRO Version in ProActivity
     private fun setProFabVisibilityGoneIfProValue100() {
+        val proPreference = ProVersion(this)
+        val valueP = proPreference.getValue()
+        if (valueP == 100) {
+            findViewById<TextView>(R.id.sync_desc_title).visibility = View.GONE
+            findViewById<TextView>(R.id.sync_desc).visibility = View.GONE
+        } else {
+            findViewById<TextView>(R.id.sync_desc_title).visibility = View.VISIBLE
+            findViewById<TextView>(R.id.sync_desc).visibility = View.VISIBLE
+        }
         val proPlusPref = ProPlusVersion(this)
         val value = proPlusPref.getValue()
         if (value == 100) {
@@ -465,6 +508,8 @@ class FlashCardActivity : BaseActivity() {
         super.onResume()
         // Ensure stored lives are applied on resume immediately
         LivesManager.refillLivesIfNeeded(this)
+        updateLoginUiState()
+
 
         // initialize cached value and update UI once
         cachedLives = LivesManager.getLives(this)
@@ -708,6 +753,14 @@ class FlashCardActivity : BaseActivity() {
         resultDialog?.show(supportFragmentManager, "GameResultsPopup")
         updateXpAndLevelStats()
 
+        // increment completed quizzes counter if this represents a finished game
+        if (gameFinished) {
+            incrementCompletedQuizzes()
+        }
+
+        // Attempt to sync progress to cloud for signed-in Pro/Pro+ users
+        attemptSyncIfAllowed()
+
         // result dialog shown -> intercept back gestures while it's visible
         setBackInterceptionEnabled(true)
     }
@@ -935,5 +988,96 @@ class FlashCardActivity : BaseActivity() {
     private fun TextView.setLockDrawable(unlocked: Boolean) {
         val drawable = if (unlocked) R.drawable.ic_lock_open else R.drawable.ic_lock
         setCompoundDrawablesWithIntrinsicBounds(drawable, 0, 0, 0)
+    }
+
+    private val signInLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val task: Task<GoogleSignInAccount> = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+        try {
+            val account = task.getResult(ApiException::class.java)
+            val idToken = account?.idToken
+            if (idToken != null) {
+                // Exchange ID token for Firebase credential and sign in via your AuthManager
+                AuthManager.handleIdTokenForFirebase(idToken) { success, _ ->
+                    runOnUiThread {
+                        if (success) {
+                            // hide the "enable_sync_login" prompt in this activity
+                            tvEnableSyncLogin?.visibility = View.GONE
+                            // attempt a sync if allowed (checks pro-status inside)
+                            attemptSyncIfAllowed()
+                        }
+                        // per your requirement: remain silent on failure (no status shown here)
+                    }
+                }
+            }
+        } catch (e: ApiException) {
+            // silent per requirement
+        }
+    }
+
+    private fun updateLoginUiState() {
+        val signedIn = AuthManager.isSignedIn()
+        tvEnableSyncLogin?.visibility = if (signedIn) View.GONE else View.VISIBLE
+    }
+
+    private fun setSyncStatus(text: String) {
+        try {
+            val isProOrProPlus = (ProVersion(this).getValue() == 100) || (ProPlusVersion(this).getValue() == 100)
+            if (!isProOrProPlus) {
+                tvSyncStatus?.visibility = View.GONE
+                return
+            }
+            tvSyncStatus?.visibility = View.VISIBLE
+            tvSyncStatus?.text = text
+        } catch (_: Exception) { /* ignore */ }
+    }
+
+    private fun attemptSyncIfAllowed() {
+        // Only sync if signed in
+        if (!AuthManager.isSignedIn()) {
+            // ensure login prompt is visible if available
+            updateLoginUiState()
+            // Hide sync status for non-pro or when not signed in
+            tvSyncStatus?.visibility = View.GONE
+            return
+        }
+
+        // Only sync for Pro / Pro+ users
+        val isProOrProPlus = (ProVersion(this).getValue() == 100) || (ProPlusVersion(this).getValue() == 100)
+        if (!isProOrProPlus) {
+            // non-pro users should not see sync status
+            tvSyncStatus?.visibility = View.GONE
+            return
+        }
+
+        val uid = AuthManager.getUid() ?: run {
+            // No uid available; hide or clear status
+            setSyncStatus(getString(R.string.sync_failed))
+            return
+        }
+
+        // Show syncing status in the sync_status TextView (visible only for Pro/Pro+ per setSyncStatus)
+        setSyncStatus(getString(R.string.syncing_progress))
+
+        // Call merge/upload. ProgressSyncManager handles merge rules (including streak).
+        ProgressSyncManager.mergeAndUploadLocalProgress(this, uid) { success ->
+            runOnUiThread {
+                if (success) {
+                    // Refresh UI to reflect merged state from cloud
+                    try {
+                        updateXpAndLevelStats()
+                    } catch (_: Exception) { /* ignore UI refresh errors */ }
+                    try {
+                        updateCategoryBoxes()
+                    } catch (_: Exception) { /* ignore UI refresh errors */ }
+                    try {
+                        refreshStreakDisplay()
+                    } catch (_: Exception) { /* ignore UI refresh errors */ }
+
+                    setSyncStatus(getString(R.string.sync_complete))
+                } else {
+                    setSyncStatus(getString(R.string.sync_failed))
+                }
+            }
+        }
     }
 }

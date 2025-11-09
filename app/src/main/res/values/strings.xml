@@ -2,7 +2,7 @@
     <string name="app_name">Atomic</string>
 
     <string name="personalization_settings">Personalization</string>
-    <string name="app_version" translatable="false">v4.3.1m-Build.186</string>
+    <string name="app_version" translatable="false">v4.3.1m-Build.189</string>
     <string name="next_sale_start" translatable="false" >2024/08/05</string>
     <string name="next_sale_end" translatable="false" >2024/09/15</string>
 
@@ -458,6 +458,14 @@
     <string name="level_range_format" translatable="false">Level %1$d</string>
     <string name="reward_5pct_title" translatable="false">+5% XP bonus</string>
     <string name="bonus_xp" translatable="false">+0% bonus active</string>
+    <string name="enable_sync" translatable="false">Enable Syncing</string>
+    <string name="enable_sync_desc" translatable="false">Syncing of progress for level, xp, achievements etc is available for PRO and PRO+ users</string>
+    <string name="enable_sync_pro_button" translatable="false">Upgrade</string>
+    <string name="sync_available_pro_only" translatable="false">Get PRO or PRO+ to enable cloud sync</string>
+    <string name="login_for_sync" translatable="false">Login to enable sync</string>
+    <string name="sync_status" translatable="false">Not synced</string>
+
+
 
 
 

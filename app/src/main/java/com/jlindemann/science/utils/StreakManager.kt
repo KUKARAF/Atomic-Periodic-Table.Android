@@ -20,6 +20,11 @@ import java.util.concurrent.TimeUnit
  * - Schedules a single exact alarm ~24h ahead when streak >= 3. The receiver reschedules itself daily
  *   while the streak requirement is still met.
  * - Uses defensive error handling; callers should still validate where appropriate.
+ *
+ * Additions:
+ * - setCurrentStreak(ctx, value) was added so external sync code (ProgressSyncManager) can update
+ *   the local streak when a larger streak comes from the cloud. This method preserves/increases
+ *   best streak and schedules/cancels reminders the same way recordPlay does.
  */
 object StreakManager {
     private const val PREFS = "streak_prefs"
@@ -96,18 +101,67 @@ object StreakManager {
         return streak
     }
 
+    /**
+     * Return the current local streak (days).
+     */
     fun getCurrentStreak(ctx: Context): Int {
         return prefs(ctx).getInt(KEY_STREAK, 0)
     }
 
+    /**
+     * Return the best streak seen locally.
+     */
     fun getBestStreak(ctx: Context): Int {
         return prefs(ctx).getInt(KEY_BEST, 0)
     }
 
+    /**
+     * Reset the streak locally (clears last play and current streak, leaves best as-is).
+     */
     fun resetStreak(ctx: Context) {
         val p = prefs(ctx)
         p.edit().remove(KEY_STREAK).remove(KEY_LAST_PLAY).apply()
         cancelReminder(ctx)
+    }
+
+    /**
+     * Allow external code (e.g. cloud merge) to set the current streak value.
+     * This will:
+     * - update KEY_STREAK to the provided value if it's greater than current local,
+     *   or set it to the provided value (we treat this as authoritative when called).
+     * - update BEST if needed.
+     * - schedule/cancel the reminder the same way recordPlay does (reminder when streak >= 3).
+     *
+     * Note: callers should ensure they only call this when appropriate (e.g., when cloud value
+     * is known to be authoritative). This method is defensive and will not crash on errors.
+     */
+    fun setCurrentStreak(ctx: Context, streakValue: Int) {
+        try {
+            val p = prefs(ctx)
+            val current = p.getInt(KEY_STREAK, 0)
+            val best = p.getInt(KEY_BEST, 0)
+            var newBest = best
+            val newStreak = streakValue.coerceAtLeast(0)
+
+            if (newStreak > newBest) {
+                newBest = newStreak
+            }
+
+            p.edit()
+                .putInt(KEY_STREAK, newStreak)
+                .putInt(KEY_BEST, newBest)
+                .apply()
+
+            // If streak >= 3 schedule reminder; otherwise cancel
+            if (newStreak >= 3) {
+                scheduleReminder(ctx)
+            } else {
+                cancelReminder(ctx)
+            }
+        } catch (t: Throwable) {
+            // swallow errors to avoid crashing callers
+            t.printStackTrace()
+        }
     }
 
     private fun todayString(): String {
@@ -164,6 +218,9 @@ object StreakManager {
         }
     }
 
+    /**
+     * Return whether a reminder has been scheduled (local flag).
+     */
     fun isReminderScheduled(ctx: Context): Boolean {
         return prefs(ctx).getBoolean(KEY_REMINDER_SCHEDULED, false)
     }

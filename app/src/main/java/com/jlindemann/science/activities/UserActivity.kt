@@ -15,6 +15,7 @@ import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import android.widget.*
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.cardview.widget.CardView
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.gms.auth.api.signin.GoogleSignIn
@@ -38,23 +39,12 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.Executors
 
-/**
- * UserActivity with Google Sign-In integration.
- *
- * - Tap profile image to sign in (when signed out) or to sign out (when signed in).
- * - After sign-in we sync local xp/level to Firestore via ProgressSyncManager.
- * - Profile image is replaced with Google photo when available.
- *
- * Make sure you have:
- *  - google-services.json in app/
- *  - Firebase initialized in Application.onCreate (FirebaseApp.initializeApp)
- *  - strings for web_client_id and the various status messages
- */
 class UserActivity : BaseActivity(), AchievementAdapter.OnAchievementClickListener {
     private val TAG = "UserActivity"
 
     private var achievementsList = ArrayList<Achievement>()
-    private var mAdapter = AchievementAdapter(achievementsList, this, this)
+    private lateinit var recyclerView: RecyclerView
+    private var mAdapter: AchievementAdapter? = null
 
     private lateinit var btnSignOut: Button
     private lateinit var tvUserInfo: TextView
@@ -74,7 +64,7 @@ class UserActivity : BaseActivity(), AchievementAdapter.OnAchievementClickListen
                 AuthManager.handleIdTokenForFirebase(idToken) { success, exception ->
                     runOnUiThread {
                         if (success) {
-                            // update UI from Firebase currentUser and sync progress
+                            // update UI from Firebase currentUser and sync progress (if allowed)
                             updateUi()
                         } else {
                             tvSyncStatus.text = getString(R.string.sign_in_failed)
@@ -117,6 +107,7 @@ class UserActivity : BaseActivity(), AchievementAdapter.OnAchievementClickListen
         tvSyncStatus = TextView(this).apply {
             textSize = 12f
             gravity = Gravity.CENTER
+            setTextColor(context.obtainStyledAttributes(intArrayOf(androidx.appcompat.R.attr.actionMenuTextColor)).let { ta -> val color = ta.getColor(0, currentTextColor); ta.recycle(); color })
         }
 
         // insert status text under pro_badge if possible
@@ -147,7 +138,7 @@ class UserActivity : BaseActivity(), AchievementAdapter.OnAchievementClickListen
         } catch (_: Exception) { /* ignore */ }
 
         // achievements list setup
-        val recyclerView = findViewById<RecyclerView>(R.id.recycler_view_achievements)
+        recyclerView = findViewById<RecyclerView>(R.id.recycler_view_achievements)
         recyclerView.layoutManager = LinearLayoutManager(this, RecyclerView.VERTICAL, false)
         setupRecyclerView()
 
@@ -166,15 +157,12 @@ class UserActivity : BaseActivity(), AchievementAdapter.OnAchievementClickListen
         if (proPref == 100) findViewById<TextView>(R.id.pro_badge).text = "PRO-USER"
         if (proPlusPref == 100) findViewById<TextView>(R.id.pro_badge).text = "PRO+-USER"
 
-        // user title persisted
-        val sharedPref = getSharedPreferences("UserActivityPrefs", Context.MODE_PRIVATE)
-        val userTitle = sharedPref.getString("user_title", "User Page")
-        findViewById<TextView>(R.id.user_title_downstate).text = userTitle
-        findViewById<TextView>(R.id.user_title_downstate).setOnClickListener {
-            showEditTextPopup()
-        }
+        // Replace user title views with user's name (they will be updated from updateUi)
+        // initialize with a default placeholder
+        setUserTitleViews("User Page")
 
         // legacy persisted image uri
+        val sharedPref = getSharedPreferences("UserActivityPrefs", Context.MODE_PRIVATE)
         val uriString = sharedPref.getString("user_img_uri", null)
         uriString?.let {
             try {
@@ -215,10 +203,19 @@ class UserActivity : BaseActivity(), AchievementAdapter.OnAchievementClickListen
         updateUi()
     }
 
+    private fun setUserTitleViews(name: String) {
+        val downState = findViewById<TextView>(R.id.user_title_downstate)
+        val upState = findViewById<TextView>(R.id.user_title)
+        downState?.text = name
+        upState?.text = name
+    }
+
     private fun updateUi() {
         val user = firebaseAuth.currentUser
         if (user != null) {
-            tvUserInfo.text = getString(R.string.user_signed_in_fmt, user.displayName ?: user.email ?: "Unknown")
+            val displayName = user.displayName ?: user.email ?: "User Page"
+            tvUserInfo.text = getString(R.string.user_signed_in_fmt, displayName)
+            setUserTitleViews(displayName)
             btnSignOut.visibility = View.VISIBLE
             val photo = user.photoUrl
             if (photo != null) {
@@ -226,7 +223,7 @@ class UserActivity : BaseActivity(), AchievementAdapter.OnAchievementClickListen
             } else {
                 userImg.setImageResource(R.drawable.ic_account)
             }
-            // Trigger sync after sign-in
+            // Trigger sync after sign-in (only if user has PRO/PRO+)
             onSigninSuccess()
         } else {
             updateUiForSignOut()
@@ -238,11 +235,14 @@ class UserActivity : BaseActivity(), AchievementAdapter.OnAchievementClickListen
         tvSyncStatus.text = ""
         btnSignOut.visibility = View.GONE
         userImg.setImageResource(R.drawable.ic_account)
+        setUserTitleViews("User Page")
     }
 
     /**
      * Called after Firebase sign-in is established (or when UI is refreshed while signed in).
      * Reads FirebaseAuth.currentUser for uid/photo/name and performs progress sync.
+     *
+     * Sync is only performed for Pro or Pro+ users. All users may sign in.
      */
     private fun onSigninSuccess() {
         val uid = AuthManager.getUid()
@@ -250,10 +250,27 @@ class UserActivity : BaseActivity(), AchievementAdapter.OnAchievementClickListen
             tvSyncStatus.text = getString(R.string.sign_in_failed)
             return
         }
+
+        // Check Pro/Pro+ status and only run sync if user has Pro or Pro+
+        val proPref = ProVersion(this).getValue()
+        val proPlusPref = ProPlusVersion(this).getValue()
+        val isProOrProPlus = (proPref == 100) || (proPlusPref == 100)
+
+        if (!isProOrProPlus) {
+            // Allow sign-in but do not sync for non-Pro users.
+            tvSyncStatus.text = "" // clear sync status for non-pro user
+            Toast.makeText(this, getString(R.string.sync_available_pro_only), Toast.LENGTH_LONG).show()
+            return
+        }
+
+        // perform sync for Pro/Pro+ users
         tvSyncStatus.text = getString(R.string.syncing_progress)
         ProgressSyncManager.mergeAndUploadLocalProgress(this, uid) { success ->
             runOnUiThread {
                 tvSyncStatus.text = if (success) getString(R.string.sync_complete) else getString(R.string.sync_failed)
+                // Always refresh the achievements/statistics view after a sync attempt
+                setupRecyclerView()
+                setupStats()
             }
         }
     }
@@ -307,48 +324,30 @@ class UserActivity : BaseActivity(), AchievementAdapter.OnAchievementClickListen
 
     private fun setupRecyclerView() {
         val recyclerView = findViewById<RecyclerView>(R.id.recycler_view_achievements)
+        achievementsList.clear()
         AchievementModel.getList(this, achievementsList)
+        // ensure each achievement loads its persisted progress
+        achievementsList.forEach { it.loadProgress(this) }
         achievementsList.sortByDescending { it.progress.toDouble() / it.maxProgress.toDouble() }
         recyclerView.layoutManager = LinearLayoutManager(this, RecyclerView.VERTICAL, false)
-        val adapter = AchievementAdapter(achievementsList, this, this)
-        recyclerView.adapter = adapter
-        adapter.notifyDataSetChanged()
-    }
-
-    private fun showEditTextPopup() {
-        val popupView = LayoutInflater.from(this).inflate(R.layout.popup_edit_text, null)
-        val editText = popupView.findViewById<EditText>(R.id.editText)
-        val buttonOk = popupView.findViewById<Button>(R.id.buttonOk)
-
-        val alertDialog = AlertDialog.Builder(this)
-            .setView(popupView)
-            .create()
-
-        buttonOk.setOnClickListener {
-            val newText = editText.text.toString()
-            findViewById<TextView>(R.id.user_title_downstate).text = newText
-            saveUserTitle(newText)
-            alertDialog.dismiss()
-        }
-
-        alertDialog.show()
-    }
-
-    private fun saveUserTitle(title: String) {
-        val sharedPref = getSharedPreferences("UserActivityPrefs", Context.MODE_PRIVATE)
-        with(sharedPref.edit()) {
-            putString("user_title", title)
-            apply()
-        }
+        mAdapter = AchievementAdapter(achievementsList, this, this)
+        recyclerView.adapter = mAdapter
+        mAdapter?.notifyDataSetChanged()
     }
 
     private fun setupStats() {
         val statistics = ArrayList<Statistics>()
         StatisticsModel.getList(this, statistics)
+        statistics.forEach { it.loadProgress(this) }
         if (statistics.size >= 3) {
             findViewById<TextView>(R.id.elements_stat).text = statistics[0].progress.toString()
             findViewById<TextView>(R.id.calculation_stat).text = statistics[1].progress.toString()
             findViewById<TextView>(R.id.search_stat).text = statistics[2].progress.toString()
+        } else {
+            // clear if missing
+            findViewById<TextView>(R.id.elements_stat).text = "0"
+            findViewById<TextView>(R.id.calculation_stat).text = "0"
+            findViewById<TextView>(R.id.search_stat).text = "0"
         }
     }
 
@@ -391,9 +390,9 @@ class UserActivity : BaseActivity(), AchievementAdapter.OnAchievementClickListen
         params.height = top + resources.getDimensionPixelSize(R.dimen.title_bar)
         findViewById<FrameLayout>(R.id.common_title_back_user).layoutParams = params
 
-        val params2 = findViewById<ImageView>(R.id.user_img).layoutParams as ViewGroup.MarginLayoutParams
+        val params2 = findViewById<CardView>(R.id.user_img_container).layoutParams as ViewGroup.MarginLayoutParams
         params2.topMargin = top + resources.getDimensionPixelSize(R.dimen.title_bar) + resources.getDimensionPixelSize(R.dimen.header_down_margin)
-        findViewById<ImageView>(R.id.user_img).layoutParams = params2
+        findViewById<CardView>(R.id.user_img_container).layoutParams = params2
     }
 
     override fun achievementClickListener(item: Achievement, position: Int) {

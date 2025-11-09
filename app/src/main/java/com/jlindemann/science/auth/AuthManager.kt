@@ -10,14 +10,6 @@ import com.google.android.gms.tasks.OnCompleteListener
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 
-/**
- * Small helper to centralize Firebase<->Google sign-in logic.
- *
- * Usage:
- * - Build a GoogleSignInClient via buildGoogleSignInClient(context, webClientId)
- * - Launch its signInIntent from the Activity (ActivityResult)
- * - When you receive an idToken, call AuthManager.handleIdTokenForFirebase(idToken, onComplete)
- */
 object AuthManager {
     private val firebaseAuth: FirebaseAuth by lazy { FirebaseAuth.getInstance() }
 

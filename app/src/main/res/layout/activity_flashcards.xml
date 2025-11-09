@@ -190,10 +190,47 @@
                     android:textSize="14sp"
                     android:text="@string/bonus_xp"
                     android:layout_marginStart="16dp"
-                    android:layout_marginBottom="16dp"
+                    android:layout_marginBottom="8dp"
                     android:layout_marginEnd="16dp"
                     android:layout_marginTop="4dp"
                     android:textColor="?attr/colorOnSurface"/>
+
+                <TextView
+                    android:id="@+id/sync_status"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="14sp"
+                    android:text="@string/sync_status"
+                    android:visibility="gone"
+                    android:textStyle="italic"
+                    android:layout_marginStart="16dp"
+                    android:layout_marginBottom="4dp"
+                    android:layout_marginEnd="16dp"
+                    android:textColor="?attr/colorOnSurface"/>
+
+                <TextView
+                    android:id="@+id/enable_sync_login"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="@dimen/margin"
+                    android:layout_marginEnd="@dimen/margin"
+                    android:layout_marginBottom="@dimen/margin"
+                    android:background="@drawable/toast"
+                    android:backgroundTint="?attr/colorPrimary"
+                    android:clickable="true"
+                    android:elevation="2dp"
+                    android:focusable="true"
+                    android:layout_gravity="end"
+                    android:gravity="center_vertical"
+                    android:paddingEnd="12dp"
+                    android:paddingStart="12dp"
+                    android:paddingTop="8dp"
+                    android:paddingBottom="8dp"
+                    android:foreground="@drawable/c_ripple"
+                    android:textStyle="bold"
+                    android:text="@string/login_for_sync"
+                    android:textSize="12sp"
+                    android:textColor="?attr/colorOnPrimary" />
             </LinearLayout>
 
             <FrameLayout
@@ -226,7 +263,6 @@
                             android:drawableTint="?attr/colorPrimary"
                             android:elevation="1dp"
                             android:focusable="true"
-                            android:foreground="@drawable/c_ripple"
                             android:gravity="center_vertical"
                             android:text="@string/unlock_all_flashcards"
                             android:textStyle="bold"
@@ -240,19 +276,46 @@
                             android:paddingStart="@dimen/margin"
                             android:paddingEnd="@dimen/margin"
                             android:paddingBottom="8dp"
-                            android:paddingTop="8dp"
+                            android:paddingTop="2dp"
                             android:text="@string/upgrade_pro_plus_description"/>
+                        <TextView
+                            android:id="@+id/sync_desc_title"
+                            android:layout_width="wrap_content"
+                            android:layout_height="match_parent"
+                            android:layout_gravity="center_vertical"
+                            android:layout_marginStart="@dimen/margin"
+                            android:clickable="true"
+                            android:drawableStart="@drawable/ic_sync"
+                            android:drawablePadding="12dp"
+                            android:drawableTint="?attr/colorPrimary"
+                            android:elevation="1dp"
+                            android:focusable="true"
+                            android:gravity="center_vertical"
+                            android:text="@string/enable_sync"
+                            android:textStyle="bold"
+                            android:textSize="18sp"
+                            android:textColor="?attr/colorPrimary" />
+                        <TextView
+                            android:id="@+id/sync_desc"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:textColor="?attr/colorOnSurfaceVariant"
+                            android:paddingStart="@dimen/margin"
+                            android:paddingEnd="@dimen/margin"
+                            android:paddingBottom="8dp"
+                            android:paddingTop="2dp"
+                            android:text="@string/enable_sync_desc"/>
 
                     </LinearLayout>
 
                     <FrameLayout
                         android:layout_width="match_parent"
-                        android:layout_height="70dp">
+                        android:layout_height="62dp">
 
                         <TextView
                             android:id="@+id/get_pro_plus_btn"
                             android:layout_width="wrap_content"
-                            android:layout_height="48dp"
+                            android:layout_height="42dp"
                             android:layout_marginStart="@dimen/margin"
                             android:layout_marginEnd="@dimen/margin"
                             android:layout_marginBottom="@dimen/margin"
@@ -262,7 +325,7 @@
                             android:clickable="true"
                             android:elevation="2dp"
                             android:focusable="true"
-                            android:layout_gravity="center"
+                            android:layout_gravity="end"
                             android:gravity="center_vertical"
                             android:paddingEnd="24dp"
                             android:paddingStart="24dp"

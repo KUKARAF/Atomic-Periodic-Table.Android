@@ -12,7 +12,28 @@
           "package_name": "com.jlindemann.science"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "315118082769-q7nthpur39qdseebfdfuluudhl8qlsj1.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.jlindemann.science",
+            "certificate_hash": "2a4aa5c7badc9282f4b5b1c82d6ea79f15e2fd25"
+          }
+        },
+        {
+          "client_id": "315118082769-shm1dprg7nu75k8la57r93lnmt4rh21r.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.jlindemann.science",
+            "certificate_hash": "c5270b7cf46fc8949daca3b8607657fbd2c3f0a5"
+          }
+        },
+        {
+          "client_id": "315118082769-ivqq7fhga4pjja0t95iuansjs2vjdu9j.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyD81GAQkK6W-U7qIIrn4cPkiYC2dnlJYww"
@@ -20,7 +41,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "315118082769-ivqq7fhga4pjja0t95iuansjs2vjdu9j.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
