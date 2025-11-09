@@ -3,27 +3,28 @@ package com.jlindemann.science.activities
 import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.content.res.Configuration
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
-import android.provider.Settings
 import android.util.Log
+import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import android.widget.*
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.google.android.play.core.review.ReviewException
-import com.google.android.play.core.review.ReviewManagerFactory
-import com.google.android.play.core.review.model.ReviewErrorCode
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount
+import com.google.android.gms.common.api.ApiException
+import com.google.android.gms.tasks.Task
+import com.google.firebase.auth.FirebaseAuth
 import com.jlindemann.science.R
 import com.jlindemann.science.adapter.AchievementAdapter
+import com.jlindemann.science.auth.AuthManager
 import com.jlindemann.science.model.Achievement
 import com.jlindemann.science.model.AchievementModel
 import com.jlindemann.science.model.ConstantsModel
@@ -32,11 +33,66 @@ import com.jlindemann.science.model.StatisticsModel
 import com.jlindemann.science.preferences.ProPlusVersion
 import com.jlindemann.science.preferences.ProVersion
 import com.jlindemann.science.preferences.ThemePreference
+import com.jlindemann.science.sync.ProgressSyncManager
+import java.net.HttpURLConnection
+import java.net.URL
+import java.util.concurrent.Executors
 
+/**
+ * UserActivity with Google Sign-In integration.
+ *
+ * - Tap profile image to sign in (when signed out) or to sign out (when signed in).
+ * - After sign-in we sync local xp/level to Firestore via ProgressSyncManager.
+ * - Profile image is replaced with Google photo when available.
+ *
+ * Make sure you have:
+ *  - google-services.json in app/
+ *  - Firebase initialized in Application.onCreate (FirebaseApp.initializeApp)
+ *  - strings for web_client_id and the various status messages
+ */
 class UserActivity : BaseActivity(), AchievementAdapter.OnAchievementClickListener {
+    private val TAG = "UserActivity"
+
     private var achievementsList = ArrayList<Achievement>()
     private var mAdapter = AchievementAdapter(achievementsList, this, this)
-    private var selectedImageUri: Uri? = null
+
+    private lateinit var btnSignOut: Button
+    private lateinit var tvUserInfo: TextView
+    private lateinit var tvSyncStatus: TextView
+    private lateinit var userImg: ImageView
+
+    // Use lazy so FirebaseApp is initialized in Application.onCreate before we get the instance
+    private val firebaseAuth: FirebaseAuth by lazy { FirebaseAuth.getInstance() }
+
+    private val signInLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val task: Task<GoogleSignInAccount> = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+        try {
+            val account = task.getResult(ApiException::class.java)
+            val idToken = account?.idToken
+            if (idToken != null) {
+                tvSyncStatus.text = getString(R.string.signing_in)
+                AuthManager.handleIdTokenForFirebase(idToken) { success, exception ->
+                    runOnUiThread {
+                        if (success) {
+                            // update UI from Firebase currentUser and sync progress
+                            updateUi()
+                        } else {
+                            tvSyncStatus.text = getString(R.string.sign_in_failed)
+                            Log.w(TAG, "Firebase sign-in failed", exception)
+                            Toast.makeText(this, R.string.sign_in_failed, Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            } else {
+                tvSyncStatus.text = getString(R.string.sign_in_failed)
+                Toast.makeText(this, R.string.sign_in_failed, Toast.LENGTH_SHORT).show()
+            }
+        } catch (e: ApiException) {
+            tvSyncStatus.text = getString(R.string.sign_in_failed)
+            Log.w(TAG, "Google sign-in failed", e)
+            Toast.makeText(this, R.string.sign_in_failed, Toast.LENGTH_SHORT).show()
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -52,9 +108,47 @@ class UserActivity : BaseActivity(), AchievementAdapter.OnAchievementClickListen
         }
         setContentView(R.layout.activity_user)
 
+        // UI wiring
+        userImg = findViewById(R.id.user_img)
+        tvUserInfo = TextView(this).apply {
+            textSize = 14f
+            gravity = Gravity.CENTER
+        }
+        tvSyncStatus = TextView(this).apply {
+            textSize = 12f
+            gravity = Gravity.CENTER
+        }
+
+        // insert status text under pro_badge if possible
+        try {
+            val proBadge = findViewById<TextView>(R.id.pro_badge)
+            val parent = proBadge.parent as? ViewGroup
+            parent?.let {
+                val index = it.indexOfChild(proBadge)
+                val params = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                params.gravity = Gravity.CENTER_HORIZONTAL
+                it.addView(tvUserInfo, index + 1, params)
+                val params2 = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                params2.gravity = Gravity.CENTER_HORIZONTAL
+                it.addView(tvSyncStatus, index + 2, params2)
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to add dynamic UI elements", e)
+        }
+
+        btnSignOut = Button(this).apply {
+            text = getString(R.string.sign_out)
+            visibility = View.GONE
+        }
+        try {
+            val proBadge = findViewById<TextView>(R.id.pro_badge)
+            val parent = proBadge.parent as? ViewGroup
+            parent?.addView(btnSignOut)
+        } catch (_: Exception) { /* ignore */ }
+
+        // achievements list setup
         val recyclerView = findViewById<RecyclerView>(R.id.recycler_view_achievements)
         recyclerView.layoutManager = LinearLayoutManager(this, RecyclerView.VERTICAL, false)
-        ConstantsModel.getList(ArrayList())
         setupRecyclerView()
 
         findViewById<FrameLayout>(R.id.view_user).systemUiVisibility = View.SYSTEM_UI_FLAG_LAYOUT_STABLE or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
@@ -65,37 +159,124 @@ class UserActivity : BaseActivity(), AchievementAdapter.OnAchievementClickListen
         rateSetup()
         shareSetup()
 
+        // PRO badge text
         val proPref = ProVersion(this).getValue()
         val proPlusPref = ProPlusVersion(this).getValue()
-        // Update depending on PRO or Not:
-        if (proPref == 1) {
-            findViewById<TextView>(R.id.pro_badge).text = "NON-PRO"
-        }
-        if (proPref == 100) {
-            findViewById<TextView>(R.id.pro_badge).text = "PRO-USER"
-        }
-        if (proPlusPref == 100) {
-            findViewById<TextView>(R.id.pro_badge).text = "PRO+-USER"
+        if (proPref == 1) findViewById<TextView>(R.id.pro_badge).text = "NON-PRO"
+        if (proPref == 100) findViewById<TextView>(R.id.pro_badge).text = "PRO-USER"
+        if (proPlusPref == 100) findViewById<TextView>(R.id.pro_badge).text = "PRO+-USER"
 
-        }
-
+        // user title persisted
         val sharedPref = getSharedPreferences("UserActivityPrefs", Context.MODE_PRIVATE)
         val userTitle = sharedPref.getString("user_title", "User Page")
         findViewById<TextView>(R.id.user_title_downstate).text = userTitle
-
         findViewById<TextView>(R.id.user_title_downstate).setOnClickListener {
             showEditTextPopup()
         }
 
-        // Handle persistable permissions
+        // legacy persisted image uri
         val uriString = sharedPref.getString("user_img_uri", null)
         uriString?.let {
-            val uri = Uri.parse(it)
             try {
-                val takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-                contentResolver.takePersistableUriPermission(uri, takeFlags)
-            } catch (e: SecurityException) {
-                Log.e("UserActivity", "Failed to take persistable URI permission onCreate", e)
+                val uri = Uri.parse(it)
+                userImg.setImageURI(uri)
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to set persisted user image uri", e)
+            }
+        }
+
+        // profile image click: sign-in/out
+        userImg.setOnClickListener {
+            if (AuthManager.isSignedIn()) {
+                AlertDialog.Builder(this)
+                    .setTitle(R.string.sign_out)
+                    .setMessage(R.string.confirm_sign_out)
+                    .setPositiveButton(R.string.sign_out) { _, _ ->
+                        AuthManager.signOut(null) {
+                            runOnUiThread { updateUiForSignOut() }
+                        }
+                    }
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .show()
+            } else {
+                val webClientId = getString(R.string.web_client_id)
+                val googleClient = AuthManager.buildGoogleSignInClient(this, webClientId)
+                val signInIntent = googleClient.signInIntent
+                signInLauncher.launch(signInIntent)
+            }
+        }
+
+        btnSignOut.setOnClickListener {
+            AuthManager.signOut(null) {
+                runOnUiThread { updateUiForSignOut() }
+            }
+        }
+
+        updateUi()
+    }
+
+    private fun updateUi() {
+        val user = firebaseAuth.currentUser
+        if (user != null) {
+            tvUserInfo.text = getString(R.string.user_signed_in_fmt, user.displayName ?: user.email ?: "Unknown")
+            btnSignOut.visibility = View.VISIBLE
+            val photo = user.photoUrl
+            if (photo != null) {
+                loadImageFromUrlIntoImageView(photo.toString(), userImg)
+            } else {
+                userImg.setImageResource(R.drawable.ic_account)
+            }
+            // Trigger sync after sign-in
+            onSigninSuccess()
+        } else {
+            updateUiForSignOut()
+        }
+    }
+
+    private fun updateUiForSignOut() {
+        tvUserInfo.text = getString(R.string.user_signed_out)
+        tvSyncStatus.text = ""
+        btnSignOut.visibility = View.GONE
+        userImg.setImageResource(R.drawable.ic_account)
+    }
+
+    /**
+     * Called after Firebase sign-in is established (or when UI is refreshed while signed in).
+     * Reads FirebaseAuth.currentUser for uid/photo/name and performs progress sync.
+     */
+    private fun onSigninSuccess() {
+        val uid = AuthManager.getUid()
+        if (uid == null) {
+            tvSyncStatus.text = getString(R.string.sign_in_failed)
+            return
+        }
+        tvSyncStatus.text = getString(R.string.syncing_progress)
+        ProgressSyncManager.mergeAndUploadLocalProgress(this, uid) { success ->
+            runOnUiThread {
+                tvSyncStatus.text = if (success) getString(R.string.sync_complete) else getString(R.string.sync_failed)
+            }
+        }
+    }
+
+    // minimal image loader using executor, avoids adding extra dependencies
+    private fun loadImageFromUrlIntoImageView(urlString: String, imageView: ImageView) {
+        val executor = Executors.newSingleThreadExecutor()
+        executor.execute {
+            try {
+                val url = URL(urlString)
+                val conn = url.openConnection() as HttpURLConnection
+                conn.doInput = true
+                conn.connectTimeout = 5000
+                conn.readTimeout = 5000
+                conn.connect()
+                val input = conn.inputStream
+                val bmp = BitmapFactory.decodeStream(input)
+                runOnUiThread {
+                    if (bmp != null) imageView.setImageBitmap(bmp)
+                }
+                input.close()
+            } catch (t: Throwable) {
+                Log.w(TAG, "Failed to load profile image", t)
             }
         }
     }
@@ -123,7 +304,6 @@ class UserActivity : BaseActivity(), AchievementAdapter.OnAchievementClickListen
             onBackPressed()
         }
     }
-
 
     private fun setupRecyclerView() {
         val recyclerView = findViewById<RecyclerView>(R.id.recycler_view_achievements)
@@ -165,48 +345,31 @@ class UserActivity : BaseActivity(), AchievementAdapter.OnAchievementClickListen
     private fun setupStats() {
         val statistics = ArrayList<Statistics>()
         StatisticsModel.getList(this, statistics)
-        findViewById<TextView>(R.id.elements_stat).text = statistics[0].progress.toString()
-        findViewById<TextView>(R.id.calculation_stat).text = statistics[1].progress.toString()
-        findViewById<TextView>(R.id.search_stat).text = statistics[2].progress.toString()
+        if (statistics.size >= 3) {
+            findViewById<TextView>(R.id.elements_stat).text = statistics[0].progress.toString()
+            findViewById<TextView>(R.id.calculation_stat).text = statistics[1].progress.toString()
+            findViewById<TextView>(R.id.search_stat).text = statistics[2].progress.toString()
+        }
     }
 
     private fun rateSetup() {
-        val manager = ReviewManagerFactory.create(this)
+        val manager = com.google.android.play.core.review.ReviewManagerFactory.create(this)
         val request = manager.requestReviewFlow()
         request.addOnCompleteListener { task ->
             if (task.isSuccessful) {
-                // We got the ReviewInfo object
                 val reviewInfo = task.result
                 findViewById<TextView>(R.id.rate_btn).setOnClickListener {
                     val flow = manager.launchReviewFlow(this, reviewInfo)
-                    flow.addOnCompleteListener { _ ->
-                        // The flow has finished. The API does not indicate whether the user
-                        // reviewed or not, or even whether the review dialog was shown. Thus, no
-                        // matter the result, we continue our app flow.
-                        Log.d("UserActivity", "In-app review flow finished.")
+                    flow.addOnCompleteListener {
+                        Log.d(TAG, "In-app review flow finished.")
                     }
                 }
             } else {
-                // There was some problem, log or handle the error.
                 val exception = task.exception
                 if (exception != null) {
-                    if (exception is ReviewException) {
-                        // It's a ReviewException, you can safely access errorCode
-                        @ReviewErrorCode val reviewErrorCode = exception.errorCode
-                        Log.e("UserActivity", "Failed to request review flow. ReviewException ErrorCode: $reviewErrorCode", exception)
-                        // TODO: Handle specific ReviewErrorCodes if needed
-                        // For example:
-                        // when (reviewErrorCode) {
-                        //     ReviewErrorCode.INVALID_REQUEST -> Log.e("UserActivity", "Invalid request for review flow.")
-                        //     // Add other cases as needed
-                        // }
-                    } else {
-                        // It's some other type of exception
-                        Log.e("UserActivity", "Failed to request review flow with an unexpected error.", exception)
-                    }
+                    Log.w(TAG, "Request review flow failed", exception)
                 } else {
-                    // Task failed but no exception was provided (should be rare)
-                    Log.e("UserActivity", "Failed to request review flow, but no exception was provided in the task.")
+                    Log.w(TAG, "Request review flow failed with unknown error")
                 }
             }
         }
@@ -234,6 +397,6 @@ class UserActivity : BaseActivity(), AchievementAdapter.OnAchievementClickListen
     }
 
     override fun achievementClickListener(item: Achievement, position: Int) {
-        // TODO: Not yet implemented
+        // Not implemented yet
     }
 }

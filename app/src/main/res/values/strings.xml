@@ -2,7 +2,7 @@
     <string name="app_name">Atomic</string>
 
     <string name="personalization_settings">Personalization</string>
-    <string name="app_version" translatable="false">v4.3.1m-Build.185</string>
+    <string name="app_version" translatable="false">v4.3.1m-Build.186</string>
     <string name="next_sale_start" translatable="false" >2024/08/05</string>
     <string name="next_sale_end" translatable="false" >2024/09/15</string>
 
@@ -493,4 +493,19 @@
     <string name="streak_notification_title" translatable="false">Keep your %1$d-day streak!</string>
     <string name="streak_notification_body" translatable="false">Play today to save your %1$d-day streak.</string>
     <string name="no_questions_title" translatable="false">Not enough data</string>
+
+    <!-- Google login -->
+    <string name="web_client_id" translatable="false">315118082769-ivqq7fhga4pjja0t95iuansjs2vjdu9j.apps.googleusercontent.com</string>
+    <string name="signing_in" translatable="false">Signing in…</string>
+    <string name="sign_in_failed" translatable="false">Sign in failed</string>
+    <string name="user_signed_in_fmt" translatable="false">Signed in as %1$s</string>
+    <string name="user_signed_out" translatable="false">Not signed in</string>
+    <string name="syncing_progress" translatable="false">Syncing progress…</string>
+    <string name="sync_complete" translatable="false">Progress synced</string>
+    <string name="sync_failed" translatable="false">Sync failed</string>
+
+    <!-- Sign out UI -->
+    <string name="sign_out" translatable="false">Sign out</string>
+    <string name="confirm_sign_out" translatable="false">Are you sure you want to sign out?</string>
+
 </resources>

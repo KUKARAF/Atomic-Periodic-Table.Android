@@ -8,7 +8,7 @@ import android.content.Intent
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.jlindemann.science.R
-import com.jlindemann.science.util.StreakManager
+import com.jlindemann.science.utils.StreakManager
 import java.util.*
 
 class StreakReminderReceiver : BroadcastReceiver() {
@@ -33,7 +33,7 @@ class StreakReminderReceiver : BroadcastReceiver() {
         val body = context.getString(R.string.streak_notification_body, streak)
 
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_stat_name) // replace with a small app icon if available
+            .setSmallIcon(R.drawable.icon_monochrome) // replace with a small app icon if available
             .setContentTitle(title)
             .setContentText(body)
             .setPriority(NotificationCompat.PRIORITY_HIGH)

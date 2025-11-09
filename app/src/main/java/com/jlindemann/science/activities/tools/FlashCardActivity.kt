@@ -14,11 +14,11 @@ import com.jlindemann.science.R
 import com.jlindemann.science.activities.BaseActivity
 import com.jlindemann.science.util.LivesManager
 import com.jlindemann.science.util.XpManager
-import com.jlindemann.science.util.StreakManager
 import java.util.concurrent.TimeUnit
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.app.AlertDialog
+import android.content.res.ColorStateList
 import android.view.LayoutInflater
 import android.view.Gravity
 import android.os.Handler
@@ -33,6 +33,7 @@ import com.jlindemann.science.activities.settings.SubmitActivity
 import com.jlindemann.science.preferences.MostUsedToolPreference
 import com.jlindemann.science.preferences.ProPlusVersion
 import com.jlindemann.science.preferences.ProVersion
+import com.jlindemann.science.utils.StreakManager
 
 class FlashCardActivity : BaseActivity() {
 
@@ -216,13 +217,24 @@ class FlashCardActivity : BaseActivity() {
             val streakView = TextView(this).apply {
                 id = resources.getIdentifier("streak_count_text", "id", packageName).takeIf { it != 0 }
                     ?: View.generateViewId()
+
+                // size 48dp -> px
+                val sizePx = (48 * resources.displayMetrics.density).toInt()
+
+                // padding (keeps small inner padding so text centers nicely inside the 48dp badge)
                 val padH = resources.getDimensionPixelSize(R.dimen.padding_small)
                 val padV = resources.getDimensionPixelSize(R.dimen.padding_tiny)
                 setPadding(padH, padV, padH, padV)
+
                 setTextColor(resources.getColor(android.R.color.white, theme))
                 textSize = 12f
-                setBackgroundResource(R.drawable.streak_badge_background)
+                gravity = Gravity.CENTER
+                setBackgroundResource(R.drawable.sunny)
+
                 visibility = View.GONE
+
+                layoutParams = LinearLayout.LayoutParams(sizePx, sizePx)
+
                 // make it clickable to open achievements/user screen
                 setOnClickListener {
                     startActivity(Intent(this@FlashCardActivity, UserActivity::class.java))

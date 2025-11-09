@@ -4,6 +4,8 @@ plugins {
     id 'kotlin-android'
     id 'com.jakewharton.butterknife'
     id 'kotlin-parcelize'
+
+    id 'com.google.gms.google-services'
 }
 
 android {
@@ -22,7 +24,7 @@ android {
         applicationId "com.jlindemann.science"
         minSdkVersion 24
         targetSdkVersion 36
-        versionCode 185
+        versionCode 186
         versionName "4.3.1m"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -53,7 +55,6 @@ android {
 
     }
 
-
     namespace 'com.jlindemann.science'
 }
 
@@ -82,6 +83,16 @@ dependencies {
     implementation 'com.ernestoyaquello.dragdropswiperecyclerview:drag-drop-swipe-recyclerview:1.0.2'
     implementation 'com.otaliastudios:zoomlayout:1.9.0'
     implementation 'androidx.work:work-runtime-ktx:2.11.0'
+    // Firebase BoM - manage versions via BoM
+    implementation platform('com.google.firebase:firebase-bom:32.2.1') // pick a recent stable BoM
+
+    // Firebase libraries without explicit versions (BoM controls versions)
+    implementation 'com.google.firebase:firebase-auth-ktx'
+    implementation 'com.google.firebase:firebase-firestore-ktx'
+
+    // Google Sign-In
+    implementation 'com.google.android.gms:play-services-auth:21.4.0'
+
     testImplementation 'junit:junit:4.13.2'
     implementation 'org.apache.commons:commons-math3:3.6.1'
     androidTestImplementation 'androidx.test:runner:1.6.2'
@@ -92,5 +103,7 @@ dependencies {
     implementation "com.android.billingclient:billing-ktx:$billing_version"
     implementation 'com.google.firebase:firebase-crashlytics-buildtools:3.0.3'
     implementation 'com.google.android.play:review-ktx:2.0.2'
+
+
 
 }

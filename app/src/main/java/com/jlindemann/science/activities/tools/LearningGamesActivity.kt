@@ -23,7 +23,7 @@ import com.jlindemann.science.model.Achievement
 import com.jlindemann.science.model.AchievementModel
 import com.jlindemann.science.util.LivesManager
 import com.jlindemann.science.util.XpManager
-import com.jlindemann.science.util.StreakManager
+import com.jlindemann.science.utils.StreakManager
 import com.jlindemann.science.views.AnimatedEffectView
 import org.json.JSONArray
 import kotlin.math.roundToInt
@@ -88,12 +88,7 @@ class LearningGamesActivity : BaseActivity() {
 
         questions = generateQuestions(category, totalQuestions)
         if (questions.isEmpty()) {
-            AlertDialog.Builder(this)
-                .setTitle(getString(R.string.no_questions_title, "Not enough data"))
-                .setMessage("Unable to generate questions for this category — the dataset contains no valid values. Try a different category or check your data files.")
-                .setPositiveButton("OK") { _, _ -> finish() }
-                .setCancelable(false)
-                .show()
+
             return
         }
 
