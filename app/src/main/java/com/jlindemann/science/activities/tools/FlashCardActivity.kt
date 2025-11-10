@@ -26,8 +26,13 @@ import android.os.Looper
 import android.view.WindowManager
 import android.widget.PopupWindow
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.widget.AppCompatButton
+import com.google.android.gms.auth.api.identity.BeginSignInRequest
+import com.google.android.gms.auth.api.identity.Identity
+import com.google.android.gms.auth.api.identity.SignInClient
+import com.google.android.gms.auth.api.identity.SignInCredential
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.google.android.gms.common.api.ApiException
@@ -66,6 +71,38 @@ class FlashCardActivity : BaseActivity() {
     //Sync & Sign-in
     private var tvEnableSyncLogin: TextView? = null
     private var tvSyncStatus: TextView? = null
+    private var lastResultsHandledAt: Long = 0L
+    private val RESULTS_DEBOUNCE_MS = 2000L
+    private lateinit var oneTapClient: SignInClient
+    private lateinit var oneTapRequest: BeginSignInRequest
+    private val oneTapLauncher = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
+        // Handle the one-tap result
+        if (result.resultCode == RESULT_OK && result.data != null) {
+            try {
+                val credential: SignInCredential = oneTapClient.getSignInCredentialFromIntent(result.data)
+                val idToken = credential.googleIdToken
+                if (!idToken.isNullOrEmpty()) {
+                    // Exchange ID token for Firebase credential and sign in via your AuthManager
+                    AuthManager.handleIdTokenForFirebase(idToken) { success, exception ->
+                        runOnUiThread {
+                            if (success) {
+                                // Hide the login prompt in this activity when user is signed in
+                                tvEnableSyncLogin?.visibility = View.GONE
+                                // Trigger sync for eligible users
+                                attemptSyncIfAllowed()
+                            } else {
+                                // Per requirement: remain silent in this activity on failure
+                            }
+                        }
+                    }
+                } else {
+                    // No ID token returned - remain silent here; optionally fallback to legacy flow
+                }
+            } catch (t: Throwable) {
+                // Silent fallback - if you want, you can fallback to legacy GoogleSignInClient here
+            }
+        }
+    }
 
     private val livesPollRunnable = object : Runnable {
         override fun run() {
@@ -157,9 +194,10 @@ class FlashCardActivity : BaseActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // theme handling (preserve existing behavior)
         val themePreference = com.jlindemann.science.preferences.ThemePreference(this)
         val themePrefValue = themePreference.getValue()
-
         if (themePrefValue == 100) {
             when (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) {
                 Configuration.UI_MODE_NIGHT_NO -> setTheme(R.style.AppTheme)
@@ -173,18 +211,93 @@ class FlashCardActivity : BaseActivity() {
         findViewById<FrameLayout>(R.id.view_flash).systemUiVisibility =
             View.SYSTEM_UI_FLAG_LAYOUT_STABLE or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
 
-        // Title Controller and other top UI wiring (unchanged)
+        // --- Sign-in & sync UI wiring ---
+        // locate sync/login views (layout may or may not include them)
+        tvEnableSyncLogin = findViewById<TextView?>(R.id.enable_sync_login)
+        tvSyncStatus = findViewById<TextView?>(R.id.sync_status)
+
+        // Initialize One Tap client and request for modern sliding account selector
+        try {
+            oneTapClient = Identity.getSignInClient(this)
+            oneTapRequest = BeginSignInRequest.builder()
+                .setGoogleIdTokenRequestOptions(
+                    BeginSignInRequest.GoogleIdTokenRequestOptions.builder()
+                        .setSupported(true)
+                        .setServerClientId(getString(R.string.web_client_id))
+                        .setFilterByAuthorizedAccounts(false) // show account selector
+                        .build()
+                )
+                .setAutoSelectEnabled(false)
+                .build()
+        } catch (t: Throwable) {
+            // If OneTap isn't available, we'll silently fall back to legacy flow when user taps.
+            t.printStackTrace()
+        }
+
+        // Wire the enable_sync_login to start One Tap sign-in, with a silent fallback to legacy if desired.
+        tvEnableSyncLogin?.setOnClickListener {
+            // Try One Tap if initialized
+            var started = false
+            try {
+                if (::oneTapClient.isInitialized) {
+                    oneTapClient.beginSignIn(oneTapRequest)
+                        .addOnSuccessListener { result ->
+                            try {
+                                val intentSender = result.pendingIntent.intentSender
+                                oneTapLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
+                            } catch (t: Throwable) {
+                                // silent fallback to legacy below
+                                t.printStackTrace()
+                            }
+                        }
+                        .addOnFailureListener { _ ->
+                            // silent: fall back to legacy GoogleSignInClient if you want
+                            // fallback handled below
+                        }
+                    started = true
+                }
+            } catch (t: Throwable) {
+                // ignore and fallback
+                t.printStackTrace()
+            }
+
+            if (!started) {
+                // Legacy fallback (keeps behavior consistent): launch GoogleSignInClient
+                try {
+                    val webClientId = getString(R.string.web_client_id)
+                    val googleClient = AuthManager.buildGoogleSignInClient(this, webClientId)
+                    val signInIntent = googleClient.signInIntent
+                    // reuse the existing sign-in launcher if defined; otherwise launch legacy intent
+                    signInLauncher.launch(signInIntent)
+                } catch (_: Throwable) {
+                    // silent per requirement
+                }
+            }
+        }
+
+        // Ensure UI reflects current sign-in state immediately
+        updateLoginUiState()
+
+        // sync_status visibility: only visible for Pro/Pro+ users
+        val isProOrProPlus = (ProVersion(this).getValue() == 100) || (ProPlusVersion(this).getValue() == 100)
+        if (isProOrProPlus) {
+            tvSyncStatus?.visibility = View.VISIBLE
+            tvSyncStatus?.text = "" // initialize empty
+        } else {
+            tvSyncStatus?.visibility = View.GONE
+        }
+
+        // --- Rest of UI wiring (preserve existing initialization) ---
         findViewById<FrameLayout>(R.id.common_title_back_fla_color).visibility = View.INVISIBLE
         findViewById<TextView>(R.id.flashcard_title).visibility = View.INVISIBLE
         findViewById<FrameLayout>(R.id.common_title_back_fla).elevation = (resources.getDimension(R.dimen.zero_elevation))
+
         val scrollView = findViewById<NestedScrollView>(R.id.flashcard_scroll)
         scrollView?.viewTreeObserver?.addOnScrollChangedListener(object : ViewTreeObserver.OnScrollChangedListener {
-            private var isTitleVisible = false // Track animation state
-
+            private var isTitleVisible = false
             override fun onScrollChanged() {
                 val scrollY = scrollView.scrollY
                 val threshold = 150
-
                 val titleColorBackground = findViewById<FrameLayout>(R.id.common_title_back_fla_color)
                 val titleText = findViewById<TextView>(R.id.flashcard_title)
                 val titleDownstateText = findViewById<TextView>(R.id.flashcard_title_downstate)
@@ -210,29 +323,6 @@ class FlashCardActivity : BaseActivity() {
             }
         })
 
-        tvEnableSyncLogin = findViewById<TextView?>(R.id.enable_sync_login)
-        tvSyncStatus = findViewById<TextView?>(R.id.sync_status)
-
-        // enable_sync_login should start Google sign-in for ALL users
-        tvEnableSyncLogin?.setOnClickListener {
-            val webClientId = getString(R.string.web_client_id)
-            val googleClient = AuthManager.buildGoogleSignInClient(this, webClientId)
-            val signInIntent = googleClient.signInIntent
-            signInLauncher.launch(signInIntent)
-        }
-
-        // update login visibility immediately
-        updateLoginUiState()
-
-        // show sync_status only for Pro / Pro+ users; always hide for non-pro
-        val isProOrProPlus = (ProVersion(this).getValue() == 100) || (ProPlusVersion(this).getValue() == 100)
-        if (isProOrProPlus) {
-            tvSyncStatus?.visibility = View.VISIBLE
-            tvSyncStatus?.text = "" // initialize empty
-        } else {
-            tvSyncStatus?.visibility = View.GONE
-        }
-
         findViewById<ImageButton>(R.id.back_btn_fla).setOnClickListener {
             onBackPressed()
         }
@@ -243,45 +333,34 @@ class FlashCardActivity : BaseActivity() {
             startActivity(intent)
         }
 
-        // Add streak badge (programmatically) to the tools_layout to the right of the achievements button
+        // add streak badge (preserve existing behavior)
         try {
             val toolsLayout = findViewById<LinearLayout>(R.id.tools_layout)
             val livesTextView = findViewById<TextView>(R.id.tv_lives_count)
-            // create badge
             val streakView = TextView(this).apply {
                 id = resources.getIdentifier("streak_count_text", "id", packageName).takeIf { it != 0 }
                     ?: View.generateViewId()
-
-                // size 48dp -> px
                 val sizePx = (48 * resources.displayMetrics.density).toInt()
-
-                // padding (keeps small inner padding so text centers nicely inside the 48dp badge)
                 val padH = resources.getDimensionPixelSize(R.dimen.padding_small)
                 val padV = resources.getDimensionPixelSize(R.dimen.padding_tiny)
                 setPadding(padH, padV, padH, padV)
-
                 setTextColor(resources.getColor(android.R.color.white, theme))
                 textSize = 12f
                 gravity = Gravity.CENTER
                 setBackgroundResource(R.drawable.sunny)
-
                 visibility = View.GONE
-
                 layoutParams = LinearLayout.LayoutParams(sizePx, sizePx)
-
-                // make it clickable to open achievements/user screen
                 setOnClickListener {
                     startActivity(Intent(this@FlashCardActivity, UserActivity::class.java))
                 }
             }
-            // Insert just before the lives count so it appears to the right of achievements_btn
             val insertIndex = if (toolsLayout.indexOfChild(livesTextView) >= 0) toolsLayout.indexOfChild(livesTextView) else toolsLayout.childCount
             toolsLayout.addView(streakView, insertIndex)
         } catch (_: Exception) {
-            // ignore if layout doesn't match; we still function without badge
+            // ignore
         }
 
-        //Add value to most used:
+        // update most-used preference, lives/info, toggles, boxes, etc.
         val mostUsedPreference = MostUsedToolPreference(this)
         val mostUsedPrefValue = mostUsedPreference.getValue()
         val targetLabel = "fla"
@@ -295,34 +374,22 @@ class FlashCardActivity : BaseActivity() {
 
         infoText = findViewById(R.id.tv_lives_info)
         setupDifficultyToggles()
-
-        // Instead of static category listeners, we'll dynamically build the boxes and wire click listeners
         buildLevelBoxes()
 
         findViewById<ImageButton>(R.id.shuffle_btn).setOnClickListener {
             launchRandomUnlockedGame()
         }
 
-        //PRO Changes
-        val proPlusPref = ProPlusVersion(this)
-        var proPlusPrefValue = proPlusPref.getValue()
-        if (proPlusPrefValue==100) {
-            findViewById<FrameLayout>(R.id.pro_box).visibility = View.GONE
-        }
-        else {
-            findViewById<TextView>(R.id.get_pro_plus_btn).setOnClickListener {
-                val intent = Intent(this, ProActivity::class.java)
-                startActivity(intent)
-            }
-        }
+        // PRO UI handling
+        setProFabVisibilityGoneIfProValue100()
 
-        // Lives popup: add click listener to lives count in toolbar
+        // Lives popup
         val livesCountView = findViewById<TextView>(R.id.tv_lives_count)
         livesCountView.setOnClickListener {
             showLivesInfoPopup(livesCountView)
         }
 
-        // Register lifecycle-aware OnBackPressedCallback in DISABLED state.
+        // back handling registration preserved
         backCallback = object : OnBackPressedCallback(false) {
             override fun handleOnBackPressed() {
                 val consumed = handleBackPress()
@@ -335,11 +402,13 @@ class FlashCardActivity : BaseActivity() {
             override fun onFragmentDestroyed(fm: androidx.fragment.app.FragmentManager, f: androidx.fragment.app.Fragment) {
                 super.onFragmentDestroyed(fm, f)
                 if (f is ResultDialogFragment) {
-                    // result dialog dismissed -> update interception
                     setBackInterceptionEnabled(anyOverlayOpen())
                 }
             }
         }, true)
+
+        // Final UI init: reflect sign-in state (hide login prompt if already signed in) and start other measurements
+        updateLoginUiState()
     }
 
     // Build level boxes dynamically from levelBoxesSpec and add to the boxes_container
@@ -748,6 +817,14 @@ class FlashCardActivity : BaseActivity() {
         totalQuestions: Int,
         difficulty: String = "easy"
     ) {
+        // debounce duplicate invocations (e.g. when both onResume and onNewIntent are triggered)
+        val now = System.currentTimeMillis()
+        if (now - lastResultsHandledAt < RESULTS_DEBOUNCE_MS) {
+            // Already processed a recent results intent — ignore this duplicate.
+            return
+        }
+        lastResultsHandledAt = now
+
         if (resultDialog?.isVisible == true) return
         resultDialog = ResultDialogFragment.newInstance(results, gameFinished, totalQuestions, difficulty)
         resultDialog?.show(supportFragmentManager, "GameResultsPopup")

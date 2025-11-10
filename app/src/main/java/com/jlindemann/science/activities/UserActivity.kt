@@ -14,7 +14,9 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import android.widget.*
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.contract.ActivityResultContracts.StartIntentSenderForResult
 import androidx.cardview.widget.CardView
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -22,6 +24,10 @@ import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.google.android.gms.common.api.ApiException
 import com.google.android.gms.tasks.Task
+import com.google.android.gms.auth.api.identity.BeginSignInRequest
+import com.google.android.gms.auth.api.identity.Identity
+import com.google.android.gms.auth.api.identity.SignInClient
+import com.google.android.gms.auth.api.identity.SignInCredential
 import com.google.firebase.auth.FirebaseAuth
 import com.jlindemann.science.R
 import com.jlindemann.science.adapter.AchievementAdapter
@@ -54,6 +60,7 @@ class UserActivity : BaseActivity(), AchievementAdapter.OnAchievementClickListen
     // Use lazy so FirebaseApp is initialized in Application.onCreate before we get the instance
     private val firebaseAuth: FirebaseAuth by lazy { FirebaseAuth.getInstance() }
 
+    // Legacy sign-in launcher (fallback)
     private val signInLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val task: Task<GoogleSignInAccount> = GoogleSignIn.getSignedInAccountFromIntent(result.data)
         try {
@@ -81,6 +88,41 @@ class UserActivity : BaseActivity(), AchievementAdapter.OnAchievementClickListen
             tvSyncStatus.text = getString(R.string.sign_in_failed)
             Log.w(TAG, "Google sign-in failed", e)
             Toast.makeText(this, R.string.sign_in_failed, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // One Tap (Identity) fields
+    private lateinit var oneTapClient: SignInClient
+    private lateinit var oneTapRequest: BeginSignInRequest
+
+    // One Tap launcher (modern sliding up account selector)
+    private val oneTapLauncher = registerForActivityResult(StartIntentSenderForResult()) { result ->
+        if (result.resultCode == RESULT_OK && result.data != null) {
+            try {
+                val credential: SignInCredential = oneTapClient.getSignInCredentialFromIntent(result.data)
+                val idToken = credential.googleIdToken
+                if (!idToken.isNullOrEmpty()) {
+                    tvSyncStatus.text = getString(R.string.signing_in)
+                    AuthManager.handleIdTokenForFirebase(idToken) { success, exception ->
+                        runOnUiThread {
+                            if (success) {
+                                // update UI and trigger sync if allowed
+                                updateUi()
+                            } else {
+                                tvSyncStatus.text = getString(R.string.sign_in_failed)
+                                Log.w(TAG, "Firebase sign-in failed (one-tap)", exception)
+                                Toast.makeText(this, R.string.sign_in_failed, Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
+                } else {
+                    // no id token - silent / fallback if desired
+                    tvSyncStatus.text = getString(R.string.sign_in_failed)
+                }
+            } catch (t: Throwable) {
+                Log.w(TAG, "One Tap sign-in handling failed", t)
+                tvSyncStatus.text = getString(R.string.sign_in_failed)
+            }
         }
     }
 
@@ -173,7 +215,24 @@ class UserActivity : BaseActivity(), AchievementAdapter.OnAchievementClickListen
             }
         }
 
-        // profile image click: sign-in/out
+        // Initialize One Tap sign-in (Identity) to provide sliding-up account selector
+        try {
+            oneTapClient = Identity.getSignInClient(this)
+            oneTapRequest = BeginSignInRequest.builder()
+                .setGoogleIdTokenRequestOptions(
+                    BeginSignInRequest.GoogleIdTokenRequestOptions.builder()
+                        .setSupported(true)
+                        .setServerClientId(getString(R.string.web_client_id))
+                        .setFilterByAuthorizedAccounts(false) // show account selector
+                        .build()
+                )
+                .setAutoSelectEnabled(false)
+                .build()
+        } catch (t: Throwable) {
+            Log.w(TAG, "OneTap initialization failed, legacy fallback will be used", t)
+        }
+
+        // profile image click: sign-in/out (use One Tap first, fallback to legacy)
         userImg.setOnClickListener {
             if (AuthManager.isSignedIn()) {
                 AlertDialog.Builder(this)
@@ -187,10 +246,34 @@ class UserActivity : BaseActivity(), AchievementAdapter.OnAchievementClickListen
                     .setNegativeButton(android.R.string.cancel, null)
                     .show()
             } else {
-                val webClientId = getString(R.string.web_client_id)
-                val googleClient = AuthManager.buildGoogleSignInClient(this, webClientId)
-                val signInIntent = googleClient.signInIntent
-                signInLauncher.launch(signInIntent)
+                // Try One Tap
+                var oneTapStarted = false
+                try {
+                    if (::oneTapClient.isInitialized) {
+                        oneTapClient.beginSignIn(oneTapRequest)
+                            .addOnSuccessListener { result ->
+                                try {
+                                    val intentSender = result.pendingIntent.intentSender
+                                    oneTapLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
+                                } catch (t: Throwable) {
+                                    Log.w(TAG, "OneTap pending intent launch failed", t)
+                                    // fall back to legacy if available
+                                    startLegacySignIn()
+                                }
+                            }
+                            .addOnFailureListener { _ ->
+                                // fall back to legacy
+                                startLegacySignIn()
+                            }
+                        oneTapStarted = true
+                    }
+                } catch (t: Throwable) {
+                    Log.w(TAG, "OneTap beginSignIn failed", t)
+                }
+
+                if (!oneTapStarted) {
+                    startLegacySignIn()
+                }
             }
         }
 
@@ -201,6 +284,17 @@ class UserActivity : BaseActivity(), AchievementAdapter.OnAchievementClickListen
         }
 
         updateUi()
+    }
+
+    private fun startLegacySignIn() {
+        try {
+            val webClientId = getString(R.string.web_client_id)
+            val googleClient = AuthManager.buildGoogleSignInClient(this, webClientId)
+            val signInIntent = googleClient.signInIntent
+            signInLauncher.launch(signInIntent)
+        } catch (t: Throwable) {
+            Log.w(TAG, "Legacy GoogleSignIn fallback failed", t)
+        }
     }
 
     private fun setUserTitleViews(name: String) {
