@@ -42,6 +42,7 @@
     <string name="pro_additional_tables_descr">Bykomende tabelle insluitend \'n nukliedtabel, poisson-verhoudingstabel, konstantes-tabel, geologietabel ens., met meer wat in die toekoms kom</string>
     <string name="pro_better_calculator">Beter Sakrekenaar</string>
     <string name="pro_better_calculator_descr">\'n Verbeterde sakrekenaar met die moontlikheid om molêre massas van verskillende verbindings op die gunstelingblad te stoor.</string>
+    <string name="pro_additional_flashcards_descr">Toegang tot bykomende flitskaarte, meer lewens en sinchronisasie van jou vordering</string>
     <string name="pro_additional_visualisations">Bykomende Visualisasies</string>
     <string name="pro_additional_visualisations_descr">Toegang tot meer visualisasies in die hoof tabel soos Poisson-verhouding, volume-modulus ens.</string>
     <string name="pro_already_purchased_title">Reeds PRO gekoop?</string>
@@ -375,4 +376,5 @@
     <string name="credits_title">Toeskrywings</string>
     <string name="credits_text">Toeskrywings aan bydraers</string>
     <string name="get_pro_element_text">Kry die PRO-weergawe om bykomende inligting oor elemente te ontsluit</string>
+    <string name="pro_additional_flashcards">Bykomende flitskaarte en sinchronisasie</string>
 </resources>

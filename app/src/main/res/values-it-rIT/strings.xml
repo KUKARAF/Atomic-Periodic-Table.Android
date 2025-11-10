@@ -61,6 +61,8 @@
     <string name="pro_additional_tables_descr">Tabelle aggiuntive tra cui una tabella dei nuclidi, tabella del rapporto di Poisson, tabella delle costanti, tabella di geologia ecc, con altre in arrivo.</string>
     <string name="pro_better_calculator">Calcolatrice migliorata</string>
     <string name="pro_better_calculator_descr">Una calcolatrice avanzata con la possibilità di salvare i pesi molari di diversi composti nella pagina dei preferiti.</string>
+    <string name="pro_additional_flashcards">Flashcard aggiuntive e sincronizzazione</string>
+    <string name="pro_additional_flashcards_descr">Accesso a flashcard aggiuntive, più vite e sincronizzazione dei tuoi progressi</string>
     <string name="pro_additional_visualisations">Visualizzazioni aggiuntive</string>
     <string name="pro_additional_visualisations_descr">Accesso a più visualizzazioni nella tabella principale come rapporto di Poisson, modulo bulk ecc.</string>
     <string name="pro_already_purchased_title">Hai già acquistato \'Atomic - Tavola Periodica\' PRO?</string>

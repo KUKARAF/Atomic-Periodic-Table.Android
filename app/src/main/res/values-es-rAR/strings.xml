@@ -42,6 +42,7 @@
     <string name="pro_additional_tables_descr">Tablas adicionales, incluyendo una tabla de nucleidos, tabla de relación de Poisson, tabla de constantes, tabla de geología, etc. Con más por venir.</string>
     <string name="pro_better_calculator">Calculadora mejorada</string>
     <string name="pro_better_calculator_descr">Una calculadora mejorada con la posibilidad de guardar los pesos molares de diferentes compuestos en la página de favoritos.</string>
+    <string name="pro_additional_flashcards_descr">Acceso a tarjetas adicionales, más vidas y sincronización de tu progreso</string>
     <string name="pro_additional_visualisations">Visualizaciones adicionales</string>
     <string name="pro_additional_visualisations_descr">Acceso a más visualizaciones en la tabla principal como la relación de Poisson, módulo bulk, etc.</string>
     <string name="pro_already_purchased_title">¿Ya compraste Atómico - Tabla Periódica PRO?</string>
@@ -375,4 +376,5 @@
     <string name="credits_title">Atribuciones</string>
     <string name="credits_text">Atribuciones a los contribuyentes</string>
     <string name="get_pro_element_text">Obtén la versión PRO para desbloquear información adicional sobre los elementos.</string>
+    <string name="pro_additional_flashcards">Tarjetas de memoria adicionales y sincronización</string>
 </resources>

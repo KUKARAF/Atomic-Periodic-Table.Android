@@ -41,6 +41,7 @@
     <string name="pro_additional_tables_descr">اضافی ٹیبلز جیسے نیوکلیڈ ٹیبل، پوساں تناسب ٹیبل، کانسٹنٹس ٹیبل، جیالوجی ٹیبل وغیرہ۔ مزید آنے والی ہیں۔</string>
     <string name="pro_better_calculator">بہتر کیلکولیٹر</string>
     <string name="pro_better_calculator_descr">ایک بہتر کیلکولیٹر جس سے مختلف مرکبات کے مولر وزن فیورٹ پیج میں محفوظ کیے جا سکتے ہیں۔</string>
+    <string name="pro_additional_flashcards_descr">اضافی فلیش کارڈز تک رسائی، مزید زندگیاں اور آپ کی پیشرفت کی مطابقت پذیری۔</string>
     <string name="pro_additional_visualisations">اضافی ویژولائزیشنز</string>
     <string name="pro_additional_visualisations_descr">مین ٹیبل میں مزید ویژولائزیشنز تک رسائی جیسے پوساں تناسب، بلک ماڈیولس وغیرہ۔</string>
     <string name="pro_already_purchased_title">کیا آپ نے پہلے ہی پرو ورژن خرید لیا ہے؟</string>
@@ -374,4 +375,5 @@
     <string name="credits_title">کریڈٹس</string>
     <string name="credits_text">شراکت داروں کو کریڈٹس</string>
     <string name="get_pro_element_text">عناصر کی اضافی معلومات کو غیر مقفل کرنے کے لیے پی آر او ورژن حاصل کریں۔</string>
+    <string name="pro_additional_flashcards">اضافی فلیش کارڈز اور مطابقت پذیری۔</string>
 </resources>

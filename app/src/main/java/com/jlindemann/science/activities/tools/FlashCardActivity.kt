@@ -46,6 +46,7 @@ import com.jlindemann.science.preferences.ProVersion
 import com.jlindemann.science.utils.StreakManager
 import com.jlindemann.science.auth.AuthManager
 import com.jlindemann.science.sync.ProgressSyncManager
+import org.w3c.dom.Text
 
 class FlashCardActivity : BaseActivity() {
 
@@ -273,6 +274,11 @@ class FlashCardActivity : BaseActivity() {
                     // silent per requirement
                 }
             }
+        }
+
+        //Set pro upgrade button listener
+        findViewById<TextView>(R.id.get_pro_plus_btn).setOnClickListener {
+            startActivity(Intent(this, ProActivity::class.java))
         }
 
         // Ensure UI reflects current sign-in state immediately

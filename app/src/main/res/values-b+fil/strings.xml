@@ -48,6 +48,8 @@
     <string name="pro_additional_tables_descr">Karagdagang mga talahanayan kabilang ang nuclide table, Poisson\'s ratio table, constants table, geology table atbp., na may higit pa sa hinaharap</string>
     <string name="pro_better_calculator">Mas Pinahusay na Kalkulador</string>
     <string name="pro_better_calculator_descr">Isang mas pinahusay na kalkulador na may kakayahang mag-save ng molar weights ng iba\'t ibang compound sa pahina ng paborito.</string>
+    <string name="pro_additional_flashcards">Mga Karagdagang Flashcard at Pag-sync</string>
+    <string name="pro_additional_flashcards_descr">Access sa mga karagdagang flashcard, mas maraming buhay at pag-sync ng iyong pag-unlad</string>
     <string name="pro_additional_visualisations">Karagdagang Biswalisasyon</string>
     <string name="pro_additional_visualisations_descr">Access sa mas maraming biswalisasyon sa pangunahing talahanayan gaya ng Poisson\'s Ratio, bulk modulus atbp.</string>
     <string name="pro_already_purchased_title">Nabili na ang Atomic - Periodic Table PRO?</string>

@@ -48,6 +48,7 @@
     <string name="pro_additional_tables_descr">अतिरिक्त तालिकाएँ जिनमें न्यूक्लाइड तालिका, प्वासों अनुपात तालिका, स्थिरांक तालिका, भूविज्ञान तालिका आदि शामिल हैं, और भविष्य में और भी जोड़ी जाएँगी।</string>
     <string name="pro_better_calculator">बेहतर कैलकुलेटर</string>
     <string name="pro_better_calculator_descr">एक उन्नत कैलकुलेटर जिसमें विभिन्न यौगिकों के मोलर भार को पसंदीदा पृष्ठ में सहेजने की सुविधा है।</string>
+    <string name="pro_additional_flashcards_descr">अतिरिक्त फ्लैशकार्ड, अधिक लाइव्स और आपकी प्रगति के समन्वयन तक पहुंच</string>
     <string name="pro_additional_visualisations">अतिरिक्त दृश्यमानता</string>
     <string name="pro_additional_visualisations_descr">मुख्य तालिका में और अधिक दृश्यमानता जैसे प्वासों अनुपात, बल्क मॉड्यूलस आदि की पहुँच।</string>
     <string name="pro_already_purchased_title">पहले ही Atomic - Periodic Table PRO खरीदा है?</string>
@@ -453,5 +454,6 @@
     <string name="credits_title">श्रेय</string>
     <string name="credits_text">योगदानकर्ताओं को श्रेय</string>
     <string name="get_pro_element_text">Kumuha ng PRO-Bersyon upang i-unlock ang karagdagang impormasyon ng mga elemento</string>
+    <string name="pro_additional_flashcards">अतिरिक्त फ्लैशकार्ड और सिंक</string>
 
 </resources>
