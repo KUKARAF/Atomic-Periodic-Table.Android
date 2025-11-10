@@ -57,7 +57,7 @@ class UserActivity : BaseActivity(), AchievementAdapter.OnAchievementClickListen
     private lateinit var tvSyncStatus: TextView
     private lateinit var userImg: ImageView
 
-    // Use lazy so FirebaseApp is initialized in Application.onCreate before we get the instance
+    // Using lazy so FirebaseApp is initialized in Application.onCreate before we get the instance
     private val firebaseAuth: FirebaseAuth by lazy { FirebaseAuth.getInstance() }
 
     // Legacy sign-in launcher (fallback)
@@ -140,7 +140,7 @@ class UserActivity : BaseActivity(), AchievementAdapter.OnAchievementClickListen
         }
         setContentView(R.layout.activity_user)
 
-        // UI wiring
+        //Setting up UI and adding sync status
         userImg = findViewById(R.id.user_img)
         tvUserInfo = TextView(this).apply {
             textSize = 14f
@@ -308,7 +308,6 @@ class UserActivity : BaseActivity(), AchievementAdapter.OnAchievementClickListen
         val user = firebaseAuth.currentUser
         if (user != null) {
             val displayName = user.displayName ?: user.email ?: "User Page"
-            tvUserInfo.text = getString(R.string.user_signed_in_fmt, displayName)
             setUserTitleViews(displayName)
             btnSignOut.visibility = View.VISIBLE
             val photo = user.photoUrl
@@ -352,8 +351,7 @@ class UserActivity : BaseActivity(), AchievementAdapter.OnAchievementClickListen
 
         if (!isProOrProPlus) {
             // Allow sign-in but do not sync for non-Pro users.
-            tvSyncStatus.text = "" // clear sync status for non-pro user
-            Toast.makeText(this, getString(R.string.sync_available_pro_only), Toast.LENGTH_LONG).show()
+            tvSyncStatus.text = "Get PRO or PRO+ to enable sync" // clear sync status for non-pro user
             return
         }
 
@@ -369,7 +367,6 @@ class UserActivity : BaseActivity(), AchievementAdapter.OnAchievementClickListen
         }
     }
 
-    // minimal image loader using executor, avoids adding extra dependencies
     private fun loadImageFromUrlIntoImageView(urlString: String, imageView: ImageView) {
         val executor = Executors.newSingleThreadExecutor()
         executor.execute {
