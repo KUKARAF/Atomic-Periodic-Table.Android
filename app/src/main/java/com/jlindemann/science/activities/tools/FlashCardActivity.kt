@@ -339,7 +339,7 @@ class FlashCardActivity : BaseActivity() {
             startActivity(intent)
         }
 
-        // add streak badge (preserve existing behavior)
+        // adding streak badge and setting up UI
         try {
             val toolsLayout = findViewById<LinearLayout>(R.id.tools_layout)
             val livesTextView = findViewById<TextView>(R.id.tv_lives_count)
@@ -348,10 +348,10 @@ class FlashCardActivity : BaseActivity() {
                     ?: View.generateViewId()
                 val sizePx = (48 * resources.displayMetrics.density).toInt()
                 val padH = resources.getDimensionPixelSize(R.dimen.padding_small)
-                val padV = resources.getDimensionPixelSize(R.dimen.padding_tiny)
+                val padV = resources.getDimensionPixelSize(R.dimen.padding_small)
                 setPadding(padH, padV, padH, padV)
-                setTextColor(resources.getColor(android.R.color.white, theme))
-                textSize = 12f
+                setTextColor(context.obtainStyledAttributes(intArrayOf(androidx.appcompat.R.attr.actionMenuTextColor)).let { ta -> val color = ta.getColor(0, currentTextColor); ta.recycle(); color })
+                textSize = 14f
                 gravity = Gravity.CENTER
                 setBackgroundResource(R.drawable.sunny)
                 visibility = View.GONE
