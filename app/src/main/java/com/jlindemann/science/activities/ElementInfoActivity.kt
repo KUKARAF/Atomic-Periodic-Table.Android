@@ -4,6 +4,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.text.TextUtils
@@ -16,6 +17,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.Space
 import android.widget.TextView
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.widget.AppCompatButton
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.cardview.widget.CardView
@@ -48,6 +50,10 @@ import java.net.ConnectException
 import kotlin.math.pow
 
 class ElementInfoActivity : InfoExtension() {
+
+    // Lifecycle-aware callback references
+    private var backCallback: OnBackPressedCallback? = null
+    private var onBackInvokedCb: android.window.OnBackInvokedCallback? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -105,9 +111,39 @@ class ElementInfoActivity : InfoExtension() {
             proChanges()
         }
         else {
-            findViewById<LinearLayout>(R.id.more_properties).visibility = View.GONE
-            findViewById<LinearLayout>(R.id.hardness_properties).visibility = View.GONE
+            findViewById<LinearLayout>(R.id.more_properties).visibility = View.VISIBLE //Changed as implementing new PRO dialog
+            findViewById<LinearLayout>(R.id.hardness_properties).visibility = View.VISIBLE //Changed as implementing new PRO dialog
         }
+
+        // Register lifecycle-aware OnBackPressedCallback in DISABLED state.
+        // We'll enable it only when overlays (shell, emission detail) are visible.
+        backCallback = object : OnBackPressedCallback(false) {
+            override fun handleOnBackPressed() {
+                // Try to close overlays first
+                val consumed = handleBackPress()
+                if (!consumed) {
+                    // Nothing to close -> forward to system/back behaviour.
+                    backCallback?.isEnabled = false
+                    try {
+                        if (isTaskRoot) {
+                            moveTaskToBack(true)
+                        } else {
+                            finish()
+                        }
+                    } catch (e: Exception) {
+                        // Fallback to default
+                        super@ElementInfoActivity.onBackPressed()
+                    }
+                } else {
+                    // Keep interception enabled only while overlays remain
+                    backCallback?.isEnabled = anyOverlayOpen()
+                }
+            }
+        }
+        onBackPressedDispatcher.addCallback(this, backCallback!!)
+
+        // We will dynamically register the platform OnBackInvokedCallback when interception is enabled
+        // via setBackInterceptionEnabled(enabled) below.
     }
 
     private fun proChanges() {
@@ -125,31 +161,101 @@ class ElementInfoActivity : InfoExtension() {
     }
 
     override fun onBackPressed() {
-        if (findViewById<RealtimeBlurView>(R.id.shell_background).visibility == View.VISIBLE) {
-            Utils.fadeOutAnim(findViewById<CardView>(R.id.shell), 300)
-            Utils.fadeOutAnim(findViewById<RealtimeBlurView>(R.id.shell_background), 300)
-            return
+        // Fallback for devices < API 33: handleBackPress() will close overlays; otherwise default behavior.
+        if (!handleBackPress()) {
+            super.onBackPressed()
         }
-        if (findViewById<CardView>(R.id.detail_emission).visibility == View.VISIBLE) {
-            Utils.fadeOutAnim(findViewById<CardView>(R.id.detail_emission), 300)
-            Utils.fadeOutAnim(findViewById<RealtimeBlurView>(R.id.detail_emission_background), 300)
-            return
+    }
+
+    // Helper to determine whether any overlay is currently open and requires interception
+    private fun anyOverlayOpen(): Boolean {
+        val shell = findViewById<CardView?>(R.id.shell)
+        val shellBg = findViewById<RealtimeBlurView?>(R.id.shell_background)
+        val detail = findViewById<CardView?>(R.id.detail_emission)
+        val detailBg = findViewById<RealtimeBlurView?>(R.id.detail_emission_background)
+
+        return (shell?.visibility == View.VISIBLE) ||
+                (shellBg?.visibility == View.VISIBLE) ||
+                (detail?.visibility == View.VISIBLE) ||
+                (detailBg?.visibility == View.VISIBLE)
+    }
+
+    // Centralized enabling/disabling of back interception; also registers/unregisters platform callback on newer OS.
+    private fun setBackInterceptionEnabled(enabled: Boolean) {
+        backCallback?.isEnabled = enabled
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            if (enabled) {
+                if (onBackInvokedCb == null) {
+                    onBackInvokedCb = android.window.OnBackInvokedCallback {
+                        // Mirror OnBackPressedCallback behavior
+                        val consumed = handleBackPress()
+                        if (!anyOverlayOpen()) {
+                            try {
+                                onBackInvokedDispatcher.unregisterOnBackInvokedCallback(onBackInvokedCb!!)
+                            } catch (_: Exception) { }
+                            onBackInvokedCb = null
+                            backCallback?.isEnabled = false
+                            // If nothing was consumed by handleBackPress, forward to system behavior
+                            if (!consumed) {
+                                try {
+                                    if (isTaskRoot) moveTaskToBack(true) else finish()
+                                } catch (_: Exception) { /* ignore */ }
+                            }
+                        }
+                    }
+                    onBackInvokedDispatcher.registerOnBackInvokedCallback(
+                        android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT,
+                        onBackInvokedCb!!
+                    )
+                }
+            } else {
+                if (onBackInvokedCb != null) {
+                    try {
+                        onBackInvokedDispatcher.unregisterOnBackInvokedCallback(onBackInvokedCb!!)
+                    } catch (_: Exception) { }
+                    onBackInvokedCb = null
+                }
+            }
         }
-        else { super.onBackPressed() }
+    }
+
+    // Close overlays (shell or detail emission) if visible; return true if consumed.
+    private fun handleBackPress(): Boolean {
+        val shell = findViewById<CardView>(R.id.shell)
+        val shellBg = findViewById<RealtimeBlurView>(R.id.shell_background)
+        val detail = findViewById<CardView>(R.id.detail_emission)
+        val detailBg = findViewById<RealtimeBlurView>(R.id.detail_emission_background)
+
+        return if (shellBg.visibility == View.VISIBLE || shell.visibility == View.VISIBLE) {
+            Utils.fadeOutAnim(shell, 300)
+            Utils.fadeOutAnim(shellBg, 300)
+            // update interception state immediately so the next system back/gesture is routed correctly
+            setBackInterceptionEnabled(anyOverlayOpen())
+            true
+        } else if (detail.visibility == View.VISIBLE || detailBg.visibility == View.VISIBLE) {
+            Utils.fadeOutAnim(detail, 300)
+            Utils.fadeOutAnim(detailBg, 300)
+            // update interception state immediately so the next system back/gesture is routed correctly
+            setBackInterceptionEnabled(anyOverlayOpen())
+            true
+        } else {
+            false
+        }
     }
 
     override fun onApplySystemInsets(top: Int, bottom: Int, left: Int, right: Int) {
-            val params = findViewById<FrameLayout>(R.id.frame).layoutParams as ViewGroup.MarginLayoutParams
-            params.topMargin = top + resources.getDimensionPixelSize(R.dimen.title_bar)
-            findViewById<FrameLayout>(R.id.frame).layoutParams = params
+        val params = findViewById<FrameLayout>(R.id.frame).layoutParams as ViewGroup.MarginLayoutParams
+        params.topMargin = top + resources.getDimensionPixelSize(R.dimen.title_bar)
+        findViewById<FrameLayout>(R.id.frame).layoutParams = params
 
-            val paramsO = findViewById<Space>(R.id.offline_space).layoutParams as ViewGroup.MarginLayoutParams
-            paramsO.topMargin += top
-            findViewById<Space>(R.id.offline_space).layoutParams = paramsO
+        val paramsO = findViewById<Space>(R.id.offline_space).layoutParams as ViewGroup.MarginLayoutParams
+        paramsO.topMargin += top
+        findViewById<Space>(R.id.offline_space).layoutParams = paramsO
 
-            val params2 = findViewById<FrameLayout>(R.id.common_title_back).layoutParams as ViewGroup.LayoutParams
-            params2.height = top + resources.getDimensionPixelSize(R.dimen.title_bar)
-            findViewById<FrameLayout>(R.id.common_title_back).layoutParams = params2
+        val params2 = findViewById<FrameLayout>(R.id.common_title_back).layoutParams as ViewGroup.LayoutParams
+        params2.height = top + resources.getDimensionPixelSize(R.dimen.title_bar)
+        findViewById<FrameLayout>(R.id.common_title_back).layoutParams = params2
     }
 
     private fun offlineCheck() {
@@ -180,26 +286,38 @@ class ElementInfoActivity : InfoExtension() {
         findViewById<CardView>(R.id.electron_view).setOnClickListener {
             Utils.fadeInAnim(findViewById<CardView>(R.id.shell), 300)
             Utils.fadeInAnim(findViewById<RealtimeBlurView>(R.id.shell_background), 300)
+            // overlay shown -> enable interception
+            setBackInterceptionEnabled(true)
         }
         findViewById<FloatingActionButton>(R.id.close_shell_btn).setOnClickListener {
             Utils.fadeOutAnim(findViewById<CardView>(R.id.shell), 300)
             Utils.fadeOutAnim(findViewById<RealtimeBlurView>(R.id.shell_background), 300)
+            // update interception state immediately (do not defer)
+            setBackInterceptionEnabled(anyOverlayOpen())
         }
         findViewById<RealtimeBlurView>(R.id.shell_background).setOnClickListener {
             Utils.fadeOutAnim(findViewById<CardView>(R.id.shell), 300)
             Utils.fadeOutAnim(findViewById<RealtimeBlurView>(R.id.shell_background), 300)
+            // update interception state immediately (do not defer)
+            setBackInterceptionEnabled(anyOverlayOpen())
         }
         findViewById<ImageView>(R.id.sp_img).setOnClickListener {
             Utils.fadeInAnim(findViewById<CardView>(R.id.detail_emission), 300)
             Utils.fadeInAnim(findViewById<RealtimeBlurView>(R.id.detail_emission_background), 300)
+            // overlay shown -> enable interception
+            setBackInterceptionEnabled(true)
         }
         findViewById<FloatingActionButton>(R.id.close_emission_btn).setOnClickListener {
             Utils.fadeOutAnim(findViewById<CardView>(R.id.detail_emission), 300)
             Utils.fadeOutAnim(findViewById<RealtimeBlurView>(R.id.detail_emission_background), 300)
+            // update interception state immediately (do not defer)
+            setBackInterceptionEnabled(anyOverlayOpen())
         }
         findViewById<RealtimeBlurView>(R.id.detail_emission_background).setOnClickListener {
             Utils.fadeOutAnim(findViewById<CardView>(R.id.detail_emission), 300)
             Utils.fadeOutAnim(findViewById<RealtimeBlurView>(R.id.detail_emission_background), 300)
+            // update interception state immediately (do not defer)
+            setBackInterceptionEnabled(anyOverlayOpen())
         }
     }
 
@@ -216,7 +334,7 @@ class ElementInfoActivity : InfoExtension() {
     }
 
     private fun nextPrev() {
-        findViewById<FloatingActionButton>(R.id.next_btn).setOnClickListener {
+        findViewById<ImageButton>(R.id.next_btn).setOnClickListener {
             var jsonString : String? = null
             try {
                 val ElementSendAndLoadPreference = ElementSendAndLoad(this)
@@ -238,7 +356,7 @@ class ElementInfoActivity : InfoExtension() {
             }
             catch (e: IOException) {}
         }
-        findViewById<FloatingActionButton>(R.id.previous_btn).setOnClickListener {
+        findViewById<ImageButton>(R.id.previous_btn).setOnClickListener {
             var jsonString : String? = null
             try {
                 val ElementSendAndLoadPreference = ElementSendAndLoad(this)
@@ -259,6 +377,18 @@ class ElementInfoActivity : InfoExtension() {
                 readJson()
             }
             catch (e: IOException) {}
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        backCallback?.remove()
+        backCallback = null
+        if (onBackInvokedCb != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            try {
+                onBackInvokedDispatcher.unregisterOnBackInvokedCallback(onBackInvokedCb!!)
+            } catch (_: Exception) { }
+            onBackInvokedCb = null
         }
     }
 }

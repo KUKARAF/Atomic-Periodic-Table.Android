@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical">
@@ -21,7 +22,7 @@
                 android:layout_height="match_parent"
                 android:backgroundTint="?attr/colorPrimary"
                 android:background="@drawable/half_down_toast"
-                android:alpha="0.11"/>
+                android:alpha="0.11" />
 
             <EditText
                 android:id="@+id/notes_edit_text"
@@ -50,38 +51,70 @@
                 android:textSize="14sp" />
         </FrameLayout>
 
-        <TextView
+        <!-- Container with center icon -->
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="18dp"
-            android:layout_marginTop="9dp"
-            android:layout_marginEnd="18dp"
-            android:layout_marginBottom="9dp"
-            android:drawableStart="@drawable/overview_icon"
-            android:drawablePadding="9dp"
-            android:text="Overview"
-            android:textColor="?attr/colorAccent"
-            android:textSize="20sp"
-            android:textStyle="bold" />
+            android:layout_marginStart="12dp"
+            android:layout_marginTop="16dp"
+            android:layout_marginEnd="12dp"
+            android:layout_marginBottom="4dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <!-- Container with center icon -->
+            <FrameLayout
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="@drawable/cookie_7"
+                android:backgroundTint="?attr/colorAccent"
+                android:layout_gravity="center_vertical"
+                android:foregroundGravity="center">
+
+                <ImageView
+                    android:id="@+id/overview_icon"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/overview_icon"
+                    android:adjustViewBounds="true"
+                    android:scaleType="centerInside"
+                    app:tint="?attr/colorOnPrimary" />
+        </FrameLayout>
 
         <TextView
+            android:id="@+id/overview_text"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_marginStart="2dp"
+            android:layout_weight="1"
+            android:gravity="center_vertical"
+            android:text="@string/overview"
+            android:textColor="?attr/colorAccent"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:alpha="0.75"
-            android:background="?attr/colorOnSecondaryContainer" />
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:layout_marginEnd="12dp"
+            android:orientation="vertical"
+            android:padding="10dp"
+            android:background="@drawable/toast_element_list_top"
+            android:backgroundTint="?attr/colorPrimaryDark">
 
         <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="24dp"
-            android:layout_marginTop="4dp">
+            android:layout_marginTop="0dp">
 
             <TextView
                 android:id="@+id/description_title"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_gravity="center_vertical"
-                android:layout_marginStart="18dp"
-                android:layout_marginEnd="18dp"
                 android:text="Description:"
                 android:textColor="?attr/colorOnSecondaryContainer"
                 android:textSize="14sp"
@@ -92,7 +125,6 @@
                 android:layout_width="16dp"
                 android:layout_height="16dp"
                 android:layout_gravity="center_vertical|end"
-                android:layout_marginEnd="18dp"
                 android:src="@drawable/ic_wikipedia_logo" />
         </FrameLayout>
 
@@ -100,9 +132,7 @@
             android:id="@+id/description_name"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="18dp"
             android:layout_marginTop="2dp"
-            android:layout_marginEnd="18dp"
             android:textIsSelectable="true"
             android:layout_marginBottom="0dp"
             android:maxLines="4"
@@ -114,21 +144,28 @@
             android:id="@+id/dsc_btn"
             android:layout_width="wrap_content"
             android:layout_height="22dp"
-            android:layout_marginStart="18dp"
-            android:layout_marginEnd="18dp"
             android:alpha="0.66"
             android:text="..more"
             android:textColor="?attr/colorOnSecondaryContainer"
             android:textSize="14sp" />
+        </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="12dp"
+        android:orientation="vertical"
+        android:padding="10dp"
+        android:background="@drawable/toast_element_list"
+        android:backgroundTint="?attr/colorPrimaryDark">
 
         <TextView
             android:id="@+id/english_name"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="18dp"
-            android:layout_marginTop="8dp"
-            android:layout_marginEnd="18dp"
-            android:layout_marginBottom="2dp"
+
             android:text="English Name:"
             android:textColor="?attr/colorOnSecondaryContainer"
             android:textSize="14sp"
@@ -138,32 +175,29 @@
             android:id="@+id/element_name"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="18dp"
-            android:layout_marginTop="2dp"
-            android:layout_marginEnd="18dp"
-            android:layout_marginBottom="8dp"
+
             android:text="element_name"
             android:textIsSelectable="true"
             android:textColor="?attr/colorOnSecondaryContainer"
             android:textSize="14sp" />
+    </LinearLayout>
 
-        <TextView
-            android:id="@+id/textView"
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginStart="18dp"
-            android:layout_marginEnd="18dp"
-            android:alpha="0.25"
-            android:background="?attr/colorOnSecondaryContainer" />
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="12dp"
+        android:orientation="vertical"
+        android:padding="10dp"
+        android:background="@drawable/toast_element_list"
+        android:backgroundTint="?attr/colorPrimaryDark">
 
         <TextView
             android:id="@+id/year_discovered"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="18dp"
-            android:layout_marginTop="8dp"
-            android:layout_marginEnd="18dp"
-            android:layout_marginBottom="2dp"
+
             android:text="Year Discovered:"
             android:textColor="?attr/colorOnSecondaryContainer"
             android:textSize="14sp"
@@ -173,32 +207,28 @@
             android:id="@+id/element_year"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="18dp"
-            android:layout_marginTop="2dp"
-            android:layout_marginEnd="18dp"
-            android:layout_marginBottom="8dp"
+
             android:text="element_year"
             android:textIsSelectable="true"
             android:textColor="?attr/colorOnSecondaryContainer"
             android:textSize="14sp" />
+    </LinearLayout>
 
-        <TextView
-            android:id="@+id/textView2"
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginStart="18dp"
-            android:layout_marginEnd="18dp"
-            android:alpha="0.25"
-            android:background="?attr/colorOnSecondaryContainer" />
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="12dp"
+        android:orientation="vertical"
+        android:padding="10dp"
+        android:background="@drawable/toast_element_list"
+        android:backgroundTint="?attr/colorPrimaryDark">
 
         <TextView
             android:id="@+id/discovered_by"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="18dp"
-            android:layout_marginTop="8dp"
-            android:layout_marginEnd="18dp"
-            android:layout_marginBottom="2dp"
             android:text="Discovered By:"
             android:textColor="?attr/colorOnSecondaryContainer"
             android:textSize="14sp"
@@ -208,32 +238,29 @@
             android:id="@+id/element_discovered_by"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="18dp"
-            android:layout_marginTop="2dp"
-            android:layout_marginEnd="18dp"
-            android:layout_marginBottom="8dp"
+
             android:text="element_discovered_by"
             android:textIsSelectable="true"
             android:textColor="?attr/colorOnSecondaryContainer"
             android:textSize="14sp" />
+    </LinearLayout>
 
-        <TextView
-            android:id="@+id/textView33"
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginStart="18dp"
-            android:layout_marginEnd="18dp"
-            android:alpha="0.25"
-            android:background="?attr/colorOnSecondaryContainer" />
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="12dp"
+        android:orientation="vertical"
+        android:padding="10dp"
+        android:background="@drawable/toast_element_list"
+        android:backgroundTint="?attr/colorPrimaryDark">
 
         <TextView
             android:id="@+id/group"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="18dp"
-            android:layout_marginTop="8dp"
-            android:layout_marginEnd="18dp"
-            android:layout_marginBottom="2dp"
+
             android:text="Group:"
             android:textColor="?attr/colorOnSecondaryContainer"
             android:textSize="14sp"
@@ -243,32 +270,28 @@
             android:id="@+id/element_group"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="18dp"
-            android:layout_marginTop="2dp"
-            android:layout_marginEnd="18dp"
-            android:layout_marginBottom="8dp"
-            android:text="element_discovered_by"
+            android:text="element_group"
             android:textIsSelectable="true"
             android:textColor="?attr/colorOnSecondaryContainer"
             android:textSize="14sp" />
+    </LinearLayout>
 
-        <TextView
-            android:id="@+id/textView323"
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginStart="18dp"
-            android:layout_marginEnd="18dp"
-            android:alpha="0.25"
-            android:background="?attr/colorOnSecondaryContainer" />
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="12dp"
+        android:orientation="vertical"
+        android:padding="10dp"
+        android:background="@drawable/toast_element_list"
+        android:backgroundTint="?attr/colorPrimaryDark">
 
         <TextView
             android:id="@+id/appearence_title"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="18dp"
-            android:layout_marginTop="8dp"
-            android:layout_marginEnd="18dp"
-            android:layout_marginBottom="2dp"
+
             android:text="Appearance:"
             android:textColor="?attr/colorOnSecondaryContainer"
             android:textSize="14sp"
@@ -278,32 +301,28 @@
             android:id="@+id/element_appearance"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="18dp"
-            android:layout_marginTop="2dp"
             android:textIsSelectable="true"
-            android:layout_marginEnd="18dp"
-            android:layout_marginBottom="8dp"
             android:text="element_discovered_by"
             android:textColor="?attr/colorOnSecondaryContainer"
             android:textSize="14sp" />
+    </LinearLayout>
 
-        <TextView
-            android:id="@+id/textView9"
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginStart="18dp"
-            android:layout_marginEnd="18dp"
-            android:alpha="0.25"
-            android:background="?attr/colorOnSecondaryContainer" />
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="12dp"
+        android:orientation="vertical"
+        android:padding="10dp"
+        android:background="@drawable/toast_element_list_bottom"
+        android:backgroundTint="?attr/colorPrimaryDark">
 
         <TextView
             android:id="@+id/electrons"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="18dp"
-            android:layout_marginTop="8dp"
-            android:layout_marginEnd="18dp"
-            android:layout_marginBottom="2dp"
+
             android:text="Electrons:"
             android:textColor="?attr/colorOnSecondaryContainer"
             android:textSize="14sp"
@@ -313,32 +332,31 @@
             android:id="@+id/electrons_el"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="18dp"
-            android:layout_marginTop="2dp"
-            android:layout_marginEnd="18dp"
-            android:layout_marginBottom="8dp"
             android:text="element_electrons"
             android:textIsSelectable="true"
             android:textColor="?attr/colorOnSecondaryContainer"
             android:textSize="14sp" />
 
+    </LinearLayout>
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="16dp"
-            android:layout_marginTop="16dp"
-            android:layout_marginEnd="16dp"
+            android:layout_marginStart="12dp"
+            android:layout_marginTop="12dp"
+            android:layout_marginEnd="12dp"
             android:layout_marginBottom="8dp"
             android:background="@drawable/toast"
-            android:backgroundTint="?attr/colorSurfaceVariant"
+            android:backgroundTint="?attr/colorPrimaryDark"
             android:orientation="vertical">
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="12dp"
                 android:layout_marginBottom="4dp"
-                android:layout_marginStart="16dp"
+                android:layout_marginEnd="12dp"
+                android:layout_marginStart="12dp"
                 android:text="Most Common Isotope"
                 android:textAlignment="center"
                 android:textColor="?attr/colorOnSecondaryContainer"

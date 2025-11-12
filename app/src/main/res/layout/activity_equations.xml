@@ -152,7 +152,7 @@
                             android:background="@android:color/transparent"
                             android:focusable="true"
                             android:focusableInTouchMode="true"
-                            android:hint="activity_formulas_search"
+                            android:hint="@string/activity_formulas_search"
                             android:imeOptions="actionSearch"
                             android:inputType="text"
                             android:maxLines="1"

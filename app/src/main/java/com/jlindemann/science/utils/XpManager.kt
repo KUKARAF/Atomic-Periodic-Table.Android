@@ -9,6 +9,11 @@ object XpManager {
     private const val PREFS = "xp_prefs"
     private const val LEVELS = 100
 
+    // Reward prefs (stores the persistent XP bonus multiplier)
+    private const val REWARDS_PREFS = "rewards_prefs"
+    private const val XP_BONUS_KEY = "xp_bonus_multiplier"
+    private const val DEFAULT_XP_MULTIPLIER = 1.0f
+
     // Custom XP table for first 21 levels for fine control, then scale up exponentially
     private val xpTable = intArrayOf(
         0,       // Level 1
@@ -42,7 +47,7 @@ object XpManager {
         // This formula can be adjusted for balance
         val base = xpTable.last()
         val extraLevels = n - xpTable.size
-        return (base + (800 * (1.10.pow(extraLevels) - 1) / 0.10)).roundToInt()
+        return (base + (600 * (1.02.pow(extraLevels) - 1) / 0.02)).roundToInt()
     }
 
     fun getLevel(xp: Int): Int {
@@ -61,10 +66,46 @@ object XpManager {
         return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getInt(XP_KEY, 0)
     }
 
+    /**
+     * Set XP to an explicit value (overwrites stored XP).
+     * Used by sync/merge code when cloud xp should replace local xp.
+     * Negative values will be clamped to 0.
+     */
+    fun setXp(context: Context, xp: Int) {
+        val safe = if (xp < 0) 0 else xp
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        prefs.edit().putInt(XP_KEY, safe).apply()
+    }
+
+    /**
+     * Add XP to the persistent store WITHOUT applying any reward multiplier.
+     * Use this for administrative/manual XP adjustments or when you don't want
+     * the game-completion multiplier applied.
+     *
+     * amount: actual XP to add (unmodified).
+     */
     fun addXp(context: Context, amount: Int) {
+        if (amount <= 0) return
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val oldXp = prefs.getInt(XP_KEY, 0)
         val newXp = oldXp + amount
+        prefs.edit().putInt(XP_KEY, newXp).apply()
+    }
+
+    /**
+     * Add XP that originates from completing a game/quiz.
+     * This method applies the persistent XP bonus multiplier (e.g. claimed +5% rewards).
+     *
+     * amount: base XP awarded for the game (before multiplier).
+     */
+    fun addGameXp(context: Context, amount: Int) {
+        if (amount <= 0) return
+        val multiplier = getXpBonusMultiplier(context).coerceAtLeast(DEFAULT_XP_MULTIPLIER)
+        val finalAmount = (amount * multiplier).roundToInt()
+
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val oldXp = prefs.getInt(XP_KEY, 0)
+        val newXp = oldXp + finalAmount
         prefs.edit().putInt(XP_KEY, newXp).apply()
     }
 
@@ -78,5 +119,35 @@ object XpManager {
         val minXp = getXpForLevel(level)
         val maxXp = getXpForLevel(level + 1)
         return Pair(xp - minXp, maxXp - minXp)
+    }
+
+    // ---- XP bonus multiplier helpers (stored in separate prefs file) ----
+
+    /**
+     * Returns the current persistent XP multiplier (default 1.0f).
+     * Example: 1.05f means +5% to awarded game XP.
+     */
+    fun getXpBonusMultiplier(context: Context): Float {
+        return context.getSharedPreferences(REWARDS_PREFS, Context.MODE_PRIVATE)
+            .getFloat(XP_BONUS_KEY, DEFAULT_XP_MULTIPLIER)
+    }
+
+    /**
+     * Adds delta to the stored XP multiplier and persists it.
+     * Use a small positive delta (e.g. 0.05f for +5%).
+     */
+    fun addXpBonusMultiplier(context: Context, delta: Float) {
+        if (delta == 0f) return
+        val prefs = context.getSharedPreferences(REWARDS_PREFS, Context.MODE_PRIVATE)
+        val curr = prefs.getFloat(XP_BONUS_KEY, DEFAULT_XP_MULTIPLIER)
+        prefs.edit().putFloat(XP_BONUS_KEY, curr + delta).apply()
+    }
+
+    /**
+     * Overwrite the stored multiplier with an explicit value (e.g. for tests/admin).
+     */
+    fun setXpBonusMultiplier(context: Context, multiplier: Float) {
+        val prefs = context.getSharedPreferences(REWARDS_PREFS, Context.MODE_PRIVATE)
+        prefs.edit().putFloat(XP_BONUS_KEY, multiplier.coerceAtLeast(DEFAULT_XP_MULTIPLIER)).apply()
     }
 }

@@ -4,11 +4,15 @@ import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Color
+import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.*
 import android.view.animation.ScaleAnimation
 import android.widget.*
+import androidx.activity.OnBackPressedCallback
 import androidx.core.text.isDigitsOnly
 import com.jlindemann.science.R
 import com.jlindemann.science.activities.BaseActivity
@@ -38,6 +42,11 @@ class NuclideActivity : BaseActivity() {
     lateinit var mScaleDetector: ScaleGestureDetector
     lateinit var gestureDetector: GestureDetector
 
+    // Unified back handling fields
+    private var backCallback: OnBackPressedCallback? = null
+    private var onBackInvokedCb: android.window.OnBackInvokedCallback? = null
+    private val uiHandler = Handler(Looper.getMainLooper())
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val themePreference = ThemePreference(this)
@@ -46,6 +55,26 @@ class NuclideActivity : BaseActivity() {
         setContentView(R.layout.activity_nuclide)
 
         findViewById<ViewStub>(R.id.viewStub).inflate()
+
+        // Setup centralized back handling (disabled by default)
+        backCallback = object : OnBackPressedCallback(false) {
+            override fun handleOnBackPressed() {
+                val consumed = handleBackPress()
+                if (!consumed) {
+                    // Not consumed by overlays -> fallback to default behaviour
+                    isEnabled = false
+                    try {
+                        onBackPressedDispatcher.onBackPressed()
+                    } finally {
+                        isEnabled = false
+                    }
+                }
+            }
+        }
+        onBackPressedDispatcher.addCallback(this, backCallback!!)
+
+        // Register platform callback on Android 14+ but start disabled
+        setBackInterceptionEnabled(false)
 
         // Run initial UI setup
         runOnUiThread {
@@ -298,23 +327,88 @@ class NuclideActivity : BaseActivity() {
         //setting up clickListeners that closes infoPanel
         findViewById<TextView>(R.id.nuc_panel_background).setOnClickListener {
             closeInfoPanel()
+            // update interception after hiding
+            setBackInterceptionEnabled(anyOverlayOpen())
         }
         findViewById<FloatingActionButton>(R.id.nuc_info_close_btn).setOnClickListener {
             closeInfoPanel()
+            // update interception after hiding
+            setBackInterceptionEnabled(anyOverlayOpen())
         }
+
+        // Info panel shown -> enable back interception
+        setBackInterceptionEnabled(true)
     }
 
     private fun closeInfoPanel() {
         Anim.fadeOutAnim(findViewById<ConstraintLayout>(R.id.nuc_info_panel), 300)
     }
 
-    //Override backPress when infoPanel is open and does this on the UiThread
+    // Centralized back handling: prefer overlay-first closing
     override fun onBackPressed() {
-        runOnUiThread {
-            if (findViewById<ConstraintLayout>(R.id.nuc_info_panel).visibility == View.VISIBLE) {
-                closeInfoPanel()
-                return@runOnUiThread
-            } else { super.onBackPressed() }
+        if (!handleBackPress()) {
+            super.onBackPressed()
+        }
+    }
+
+    // Centralized overlay detection
+    private fun anyOverlayOpen(): Boolean {
+        val infoVisible = findViewById<ConstraintLayout>(R.id.nuc_info_panel).visibility == View.VISIBLE
+        return infoVisible
+    }
+
+    // Close overlays if visible; return true when consumed.
+    private fun handleBackPress(): Boolean {
+        val infoPanel = findViewById<ConstraintLayout>(R.id.nuc_info_panel)
+        if (infoPanel.visibility == View.VISIBLE) {
+            closeInfoPanel()
+            // update interception state after hiding
+            setBackInterceptionEnabled(anyOverlayOpen())
+            return true
+        }
+        return false
+    }
+
+    /**
+     * Centralized management of platform back interception for Android 14+.
+     * We forward platform back invocations to the OnBackPressedDispatcher to ensure
+     * gestures and hardware back buttons call the same callbacks.
+     */
+    private fun setBackInterceptionEnabled(enabled: Boolean) {
+        backCallback?.isEnabled = enabled
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            if (enabled) {
+                if (onBackInvokedCb == null) {
+                    onBackInvokedCb = android.window.OnBackInvokedCallback {
+                        uiHandler.post {
+                            try {
+                                onBackPressedDispatcher.onBackPressed()
+                            } catch (e: Exception) {
+                                val consumed = handleBackPress()
+                                if (!consumed) finish()
+                            }
+                        }
+                    }
+                    try {
+                        onBackInvokedDispatcher.registerOnBackInvokedCallback(
+                            android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT,
+                            onBackInvokedCb!!
+                        )
+                    } catch (_: Exception) {
+                        // ignore registration errors on some devices
+                    }
+                }
+            } else {
+                if (onBackInvokedCb != null) {
+                    try {
+                        onBackInvokedDispatcher.unregisterOnBackInvokedCallback(onBackInvokedCb!!)
+                    } catch (_: Exception) {
+                        // ignore
+                    }
+                    onBackInvokedCb = null
+                }
+            }
         }
     }
 
@@ -330,7 +424,17 @@ class NuclideActivity : BaseActivity() {
         findViewById<FloatingActionButton>(R.id.nuc_info_fab).layoutParams = params3
 
     }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // Cleanup back interception hooks
+        backCallback?.remove()
+        backCallback = null
+        if (onBackInvokedCb != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            try {
+                onBackInvokedDispatcher.unregisterOnBackInvokedCallback(onBackInvokedCb!!)
+            } catch (_: Exception) { }
+            onBackInvokedCb = null
+        }
+    }
 }
-
-
-

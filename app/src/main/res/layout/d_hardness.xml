@@ -8,10 +8,11 @@
 
     <FrameLayout
         android:id="@+id/pro_hardness_box"
-        android:elevation="10dp"
-        android:background="?attr/backgroundColor"
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        android:layout_height="match_parent"
+        android:background="?attr/backgroundColor"
+        android:elevation="10dp"
+        android:visibility="gone">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -46,16 +47,16 @@
                     android:foreground="@drawable/c_ripple"
                     android:gravity="center_vertical"
                     android:text="Hardness Properties"
-                    android:textStyle="bold"
+                    android:textColor="?attr/colorPrimary"
                     android:textSize="18sp"
-                    android:textColor="?attr/colorPrimary" />
+                    android:textStyle="bold" />
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:textColor="?attr/colorOnSurfaceVariant"
                     android:padding="@dimen/margin"
-                    android:text="Hardness properties requires PRO-version. Get PRO to unlock more data and tables:"/>
+                    android:text="Hardness properties requires PRO-version. Get PRO to unlock more data and tables:"
+                    android:textColor="?attr/colorOnSurfaceVariant" />
 
             </LinearLayout>
 
@@ -67,24 +68,24 @@
                     android:id="@+id/get_pro_hardness_btn"
                     android:layout_width="wrap_content"
                     android:layout_height="48dp"
+                    android:layout_gravity="center"
                     android:layout_marginStart="@dimen/margin"
-                    android:layout_marginEnd="@dimen/margin"
                     android:layout_marginTop="@dimen/margin"
+                    android:layout_marginEnd="@dimen/margin"
                     android:layout_marginBottom="@dimen/margin"
                     android:background="@drawable/toast"
                     android:backgroundTint="?attr/colorPrimary"
                     android:clickable="true"
                     android:elevation="2dp"
                     android:focusable="true"
-                    android:layout_gravity="center"
-                    android:gravity="center_vertical"
-                    android:paddingEnd="24dp"
-                    android:paddingStart="24dp"
                     android:foreground="@drawable/c_ripple"
-                    android:textStyle="bold"
+                    android:gravity="center_vertical"
+                    android:paddingStart="24dp"
+                    android:paddingEnd="24dp"
                     android:text="@string/get_pro_title"
+                    android:textColor="?attr/colorOnPrimary"
                     android:textSize="18sp"
-                    android:textColor="?attr/colorOnPrimary" />
+                    android:textStyle="bold" />
             </FrameLayout>
         </LinearLayout>
     </FrameLayout>
@@ -93,40 +94,67 @@
         android:id="@+id/hardness_properties"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_marginTop="8dp"
         android:layout_marginBottom="8dp"
         android:elevation="2dp"
         android:orientation="vertical">
 
-        <TextView
+        <!-- Container with center icon -->
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="18dp"
-            android:layout_marginTop="9dp"
-            android:layout_marginEnd="18dp"
-            android:layout_marginBottom="9dp"
-            android:drawableStart="@drawable/ic_hardness"
-            android:drawablePadding="9dp"
-            android:drawableTint="?attr/colorPrimary"
-            android:text="Hardness Properties"
-            android:textColor="?attr/colorPrimary"
-            android:textSize="20sp"
-            android:textStyle="bold" />
+            android:layout_marginStart="12dp"
+            android:layout_marginTop="16dp"
+            android:layout_marginEnd="12dp"
+            android:layout_marginBottom="4dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:alpha="0.75"
-            android:background="?attr/colorOnSecondaryContainer" />
+            <!-- Container with center icon -->
+            <FrameLayout
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="@drawable/cookie_7"
+                android:backgroundTint="?attr/colorAccent"
+                android:layout_gravity="center_vertical"
+                android:foregroundGravity="center">
 
+                <ImageView
+                    android:id="@+id/overview_icon"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/ic_hardness"
+                    android:adjustViewBounds="true"
+                    android:scaleType="centerInside"
+                    app:tint="?attr/colorOnPrimary" />
+            </FrameLayout>
+
+            <TextView
+                android:id="@+id/overview_text"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_marginStart="2dp"
+                android:layout_weight="1"
+                android:gravity="center_vertical"
+                android:text="@string/hardness_properties"
+                android:textColor="?attr/colorAccent"
+                android:textSize="22sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="12dp"
+        android:orientation="vertical"
+        android:padding="10dp"
+        android:background="@drawable/toast_element_list_top"
+        android:backgroundTint="?attr/colorPrimaryDark">
         <TextView
             android:id="@+id/mohs_hardness_title"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="18dp"
-            android:layout_marginTop="8dp"
-            android:layout_marginEnd="18dp"
-            android:layout_marginBottom="2dp"
             android:text="Mohs hardness:"
             android:textColor="?attr/colorOnSecondaryContainer"
             android:textSize="14sp"
@@ -136,31 +164,27 @@
             android:id="@+id/mohs_hardness_text"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="18dp"
-            android:layout_marginTop="2dp"
-            android:layout_marginEnd="18dp"
-            android:layout_marginBottom="8dp"
             android:text="element_mohs_hardness_text"
             android:textIsSelectable="true"
             android:textColor="?attr/colorOnSecondaryContainer"
             android:textSize="14sp" />
+    </LinearLayout>
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginStart="18dp"
-            android:layout_marginEnd="18dp"
-            android:alpha="0.25"
-            android:background="?attr/colorOnSecondaryContainer" />
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="12dp"
+        android:orientation="vertical"
+        android:padding="10dp"
+        android:background="@drawable/toast_element_list"
+        android:backgroundTint="?attr/colorPrimaryDark">
 
         <TextView
             android:id="@+id/vickers_hardness_title"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="18dp"
-            android:layout_marginTop="8dp"
-            android:layout_marginEnd="18dp"
-            android:layout_marginBottom="2dp"
             android:text="Vickers hardness:"
             android:textColor="?attr/colorOnSecondaryContainer"
             android:textSize="14sp"
@@ -170,31 +194,27 @@
             android:id="@+id/vickers_hardness_text"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="18dp"
-            android:layout_marginTop="2dp"
-            android:layout_marginEnd="18dp"
-            android:layout_marginBottom="8dp"
             android:text="vickers_hardness_text"
             android:textIsSelectable="true"
             android:textColor="?attr/colorOnSecondaryContainer"
             android:textSize="14sp" />
+    </LinearLayout>
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginStart="18dp"
-            android:layout_marginEnd="18dp"
-            android:alpha="0.25"
-            android:background="?attr/colorOnSecondaryContainer" />
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="12dp"
+        android:orientation="vertical"
+        android:padding="10dp"
+        android:background="@drawable/toast_element_list_bottom"
+        android:backgroundTint="?attr/colorPrimaryDark">
 
         <TextView
             android:id="@+id/brinell_hardness_title"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="18dp"
-            android:layout_marginTop="8dp"
-            android:layout_marginEnd="18dp"
-            android:layout_marginBottom="2dp"
             android:text="Brinell hardness:"
             android:textColor="?attr/colorOnSecondaryContainer"
             android:textSize="14sp"
@@ -204,13 +224,10 @@
             android:id="@+id/brinell_hardness_text"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="18dp"
-            android:layout_marginTop="2dp"
-            android:layout_marginEnd="18dp"
-            android:layout_marginBottom="8dp"
             android:text="brinell_hardness_text"
             android:textIsSelectable="true"
             android:textColor="?attr/colorOnSecondaryContainer"
             android:textSize="14sp" />
+    </LinearLayout>
     </LinearLayout>
 </FrameLayout>

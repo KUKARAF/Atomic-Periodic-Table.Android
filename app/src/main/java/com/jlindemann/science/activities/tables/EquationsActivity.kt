@@ -3,8 +3,10 @@ package com.jlindemann.science.activities.tables
 import android.content.Context
 import android.content.res.Configuration
 import android.graphics.ColorMatrixColorFilter
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
+import android.os.Looper
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.View
@@ -16,6 +18,7 @@ import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.activity.OnBackPressedCallback
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -32,10 +35,14 @@ import com.jlindemann.science.utils.Utils
 import java.util.*
 import kotlin.collections.ArrayList
 
-
 class EquationsActivity : BaseActivity(), EquationsAdapter.OnEquationClickListener  {
     private var equationList = ArrayList<Equation>()
     var mAdapter = EquationsAdapter(equationList, this, this)
+
+    // Back handling fields (unified pattern used across activities)
+    private var backCallback: OnBackPressedCallback? = null
+    private var onBackInvokedCb: android.window.OnBackInvokedCallback? = null
+    private val uiHandler = Handler(Looper.getMainLooper())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -52,6 +59,28 @@ class EquationsActivity : BaseActivity(), EquationsAdapter.OnEquationClickListen
         if (themePrefValue == 1) { setTheme(R.style.AppThemeDark) }
         setContentView(R.layout.activity_equations) //REMEMBER: Never move any function calls above this
 
+        // Register lifecycle-aware OnBackPressedCallback (disabled by default).
+        backCallback = object : OnBackPressedCallback(false) {
+            override fun handleOnBackPressed() {
+                val consumed = handleBackPress()
+                if (!consumed) {
+                    // Not consumed by overlays -> fallback to default behavior.
+                    isEnabled = false
+                    try {
+                        onBackPressedDispatcher.onBackPressed()
+                    } finally {
+                        // Keep disabled by default; will be enabled when overlays open.
+                        isEnabled = false
+                    }
+                }
+            }
+        }
+        onBackPressedDispatcher.addCallback(this, backCallback!!)
+
+        // Register platform OnBackInvoked callback for Android 14+ (forward gestures to dispatcher).
+        // Start with interception disabled; enable when overlays appear.
+        setBackInterceptionEnabled(false)
+
         //Add value to most used:
         val mostUsedPreference = MostUsedPreference(this)
         val mostUsedPrefValue = mostUsedPreference.getValue()
@@ -66,6 +95,7 @@ class EquationsActivity : BaseActivity(), EquationsAdapter.OnEquationClickListen
 
         recyclerView()
         clickSearch()
+
         findViewById<FloatingActionButton>(R.id.e_back_btn).setOnClickListener { hideInfoPanel() }
         findViewById<TextView>(R.id.l_background_e).setOnClickListener { hideInfoPanel() }
 
@@ -127,10 +157,10 @@ class EquationsActivity : BaseActivity(), EquationsAdapter.OnEquationClickListen
     }
 
     override fun onBackPressed() {
-        if (findViewById<ConstraintLayout>(R.id.e_inc).visibility == View.VISIBLE) {
-            hideInfoPanel()
-            return
-        } else { super.onBackPressed() }
+        // Use centralized handler so gestures and hardware back behave consistently.
+        if (!handleBackPress()) {
+            super.onBackPressed()
+        }
     }
 
     private fun filter(text: String, list: ArrayList<Equation>, recyclerView: RecyclerView) {
@@ -162,6 +192,9 @@ class EquationsActivity : BaseActivity(), EquationsAdapter.OnEquationClickListen
             findViewById<EditText>(R.id.edit_equ).requestFocus()
             val imm: InputMethodManager = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
             imm.showSoftInput(findViewById<EditText>(R.id.edit_equ), InputMethodManager.SHOW_IMPLICIT)
+
+            // Search bar shown -> enable back interception
+            setBackInterceptionEnabled(true)
         }
         findViewById<ImageButton>(R.id.close_equ_search).setOnClickListener {
             Utils.fadeOutAnim(findViewById<FrameLayout>(R.id.search_bar_equ), 1)
@@ -176,6 +209,9 @@ class EquationsActivity : BaseActivity(), EquationsAdapter.OnEquationClickListen
                 val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
                 imm.hideSoftInputFromWindow(view.windowToken, 0)
             }
+
+            // closed -> update interception state
+            setBackInterceptionEnabled(anyOverlayOpen())
         }
     }
 
@@ -185,6 +221,8 @@ class EquationsActivity : BaseActivity(), EquationsAdapter.OnEquationClickListen
 
     private fun showInfoPanel(title: Int, text: String) {
         Anim.fadeIn(findViewById<ConstraintLayout>(R.id.e_inc), 150)
+        // show background too so user can tap to dismiss
+        Anim.fadeIn(findViewById<TextView>(R.id.l_background_e), 150)
 
         findViewById<ImageView>(R.id.e_title).setImageResource(title)
         val themePreference = ThemePreference(this)
@@ -198,10 +236,17 @@ class EquationsActivity : BaseActivity(), EquationsAdapter.OnEquationClickListen
             }
         }
         findViewById<TextView>(R.id.e_text).text = text
+
+        // Info panel shown -> enable back interception
+        setBackInterceptionEnabled(true)
     }
 
     private fun hideInfoPanel() {
         Anim.fadeOutAnim(findViewById<ConstraintLayout>(R.id.e_inc), 150)
+        Anim.fadeOutAnim(findViewById<TextView>(R.id.l_background_e), 150)
+
+        // After hiding, update interception state
+        setBackInterceptionEnabled(anyOverlayOpen())
     }
 
     private val NEGATIVE = floatArrayOf(
@@ -210,7 +255,106 @@ class EquationsActivity : BaseActivity(), EquationsAdapter.OnEquationClickListen
         0f, 0f, -1.0f, 0f, 255f,
         0f, 0f, 0f, 1.0f, 0f
     )
+
+    // Basic handler for in-activity overlays
+    private fun anyOverlayOpen(): Boolean {
+        val infoVisible = findViewById<ConstraintLayout>(R.id.e_inc).visibility == View.VISIBLE
+        val backgroundVisible = findViewById<TextView>(R.id.l_background_e).visibility == View.VISIBLE
+        val searchBarVisible = findViewById<FrameLayout>(R.id.search_bar_equ).visibility == View.VISIBLE
+        return infoVisible || backgroundVisible || searchBarVisible
+    }
+
+    // Close overlays if visible; return true when consumed.
+    private fun handleBackPress(): Boolean {
+        val infoPanel = findViewById<ConstraintLayout>(R.id.e_inc)
+        val background = findViewById<TextView>(R.id.l_background_e)
+        val searchBar = findViewById<FrameLayout>(R.id.search_bar_equ)
+
+        // If info panel visible, hide it
+        if (infoPanel.visibility == View.VISIBLE) {
+            hideInfoPanel()
+            setBackInterceptionEnabled(anyOverlayOpen())
+            return true
+        }
+
+        // If search bar visible, close it
+        if (searchBar.visibility == View.VISIBLE) {
+            Utils.fadeOutAnim(searchBar, 1)
+            // restore title box after a short delay to match original timing
+            Handler(Looper.getMainLooper()).postDelayed({
+                Utils.fadeInAnim(findViewById<FrameLayout>(R.id.title_box_equ), 150)
+            }, 151)
+
+            val view = this.currentFocus
+            if (view != null) {
+                val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                imm.hideSoftInputFromWindow(view.windowToken, 0)
+            }
+
+            setBackInterceptionEnabled(anyOverlayOpen())
+            return true
+        }
+
+        return false
+    }
+
+    /**
+     * Centralized management of platform back interception for Android 14+.
+     * We forward platform back invocations to the OnBackPressedDispatcher to ensure
+     * gestures and hardware back buttons call the same callbacks.
+     */
+    private fun setBackInterceptionEnabled(enabled: Boolean) {
+        // Keep OnBackPressedCallback state in sync
+        backCallback?.isEnabled = enabled
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            if (enabled) {
+                if (onBackInvokedCb == null) {
+                    onBackInvokedCb = android.window.OnBackInvokedCallback {
+                        uiHandler.post {
+                            try {
+                                onBackPressedDispatcher.onBackPressed()
+                            } catch (e: Exception) {
+                                val consumed = handleBackPress()
+                                if (!consumed) {
+                                    // fallback to finishing
+                                    finish()
+                                }
+                            }
+                        }
+                    }
+                    try {
+                        onBackInvokedDispatcher.registerOnBackInvokedCallback(
+                            android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT,
+                            onBackInvokedCb!!
+                        )
+                    } catch (_: Exception) {
+                        // ignore registration errors on some devices
+                    }
+                }
+            } else {
+                if (onBackInvokedCb != null) {
+                    try {
+                        onBackInvokedDispatcher.unregisterOnBackInvokedCallback(onBackInvokedCb!!)
+                    } catch (_: Exception) {
+                        // ignore
+                    }
+                    onBackInvokedCb = null
+                }
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // Cleanup back interception hooks
+        backCallback?.remove()
+        backCallback = null
+        if (onBackInvokedCb != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            try {
+                onBackInvokedDispatcher.unregisterOnBackInvokedCallback(onBackInvokedCb!!)
+            } catch (_: Exception) { }
+            onBackInvokedCb = null
+        }
+    }
 }
-
-
-

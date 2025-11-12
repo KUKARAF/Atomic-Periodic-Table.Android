@@ -1,9 +1,7 @@
 package com.jlindemann.science.activities
 
-import android.app.PendingIntent
 import android.content.Context
 import android.content.res.Configuration
-import android.graphics.Insets
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -23,9 +21,9 @@ import android.widget.TextView
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import androidx.activity.OnBackPressedCallback
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.jlindemann.science.R
-import com.jlindemann.science.adapter.ElementAdapter
 import com.jlindemann.science.adapter.IsotopeAdapter
 import com.jlindemann.science.animations.Anim
 import com.jlindemann.science.model.Element
@@ -45,6 +43,11 @@ class IsotopesActivityExperimental : BaseActivity(), IsotopeAdapter.OnElementCli
     private var elementList = ArrayList<Element>()
     var mAdapter = IsotopeAdapter(elementList, this, this)
 
+    // Unified back handling fields
+    private var backCallback: OnBackPressedCallback? = null
+    private var onBackInvokedCb: android.window.OnBackInvokedCallback? = null
+    private val uiHandler = Handler(Looper.getMainLooper())
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val themePreference = ThemePreference(this)
@@ -59,6 +62,29 @@ class IsotopesActivityExperimental : BaseActivity(), IsotopeAdapter.OnElementCli
         if (themePrefValue == 0) { setTheme(R.style.AppTheme) }
         if (themePrefValue == 1) { setTheme(R.style.AppThemeDark) }
         setContentView(R.layout.activity_isotopes_experimental) //Don't move down (Needs to be before we call our functions)
+
+        // Register a lifecycle-aware OnBackPressedCallback (disabled by default).
+        backCallback = object : OnBackPressedCallback(false) {
+            override fun handleOnBackPressed() {
+                val consumed = handleBackPress()
+                if (!consumed) {
+                    // Not consumed by overlays -> fall back to default behaviour.
+                    // Temporarily disable the callback to avoid recursion, then dispatch.
+                    isEnabled = false
+                    try {
+                        onBackPressedDispatcher.onBackPressed()
+                    } finally {
+                        // Keep disabled by default; will be enabled when overlays open.
+                        isEnabled = false
+                    }
+                }
+            }
+        }
+        onBackPressedDispatcher.addCallback(this, backCallback!!)
+
+        // Register platform callback for Android 14+ to forward gestures to the dispatcher when enabled.
+        // Start with interception disabled (we only need it when overlays are visible).
+        setBackInterceptionEnabled(false)
 
         val recyclerView = findViewById<RecyclerView>(R.id.r_view)
         findViewById<SlidingUpPanelLayout>(R.id.sliding_layout_i).panelState = SlidingUpPanelLayout.PanelState.COLLAPSED
@@ -81,6 +107,8 @@ class IsotopesActivityExperimental : BaseActivity(), IsotopeAdapter.OnElementCli
                     Utils.fadeOutAnim(findViewById<TextView>(R.id.background_i2), 300)
                     Utils.fadeOutAnim(findViewById<FrameLayout>(R.id.slid_panel), 300)
                 }
+                // Update back interception state whenever panel state changes
+                setBackInterceptionEnabled(anyOverlayOpen())
             }
         })
 
@@ -92,7 +120,10 @@ class IsotopesActivityExperimental : BaseActivity(), IsotopeAdapter.OnElementCli
             else {
                 Utils.fadeOutAnim(findViewById<SlidingUpPanelLayout>(R.id.sliding_layout_i), 300)
                 Utils.fadeOutAnim(findViewById<TextView>(R.id.background_i2), 300)
+                findViewById<SlidingUpPanelLayout>(R.id.sliding_layout_i).panelState = SlidingUpPanelLayout.PanelState.COLLAPSED
             }
+            // Update back interception state after click closes overlays
+            setBackInterceptionEnabled(anyOverlayOpen())
         }
 
         //Add value to most used:
@@ -118,10 +149,14 @@ class IsotopesActivityExperimental : BaseActivity(), IsotopeAdapter.OnElementCli
         findViewById<FloatingActionButton>(R.id.filter_btn2).setOnClickListener {
             Utils.fadeInAnim(findViewById<ConstraintLayout>(R.id.iso_filter_box), 150)
             Utils.fadeInAnim(findViewById<TextView>(R.id.filter_background), 150)
+            // show overlay -> enable back interception
+            setBackInterceptionEnabled(true)
         }
         findViewById<TextView>(R.id.filter_background).setOnClickListener {
             Utils.fadeOutAnim(findViewById<ConstraintLayout>(R.id.iso_filter_box), 150)
             Utils.fadeOutAnim(findViewById<TextView>(R.id.filter_background), 150)
+            // update interception after closing
+            setBackInterceptionEnabled(anyOverlayOpen())
         }
         findViewById<TextView>(R.id.iso_alphabet_btn).setOnClickListener {
             val isoPreference = IsoPreferences(this)
@@ -139,6 +174,7 @@ class IsotopesActivityExperimental : BaseActivity(), IsotopeAdapter.OnElementCli
             mAdapter.filterList(filtList)
             mAdapter.notifyDataSetChanged()
             recyclerView.adapter = IsotopeAdapter(filtList, this, this)
+            setBackInterceptionEnabled(anyOverlayOpen())
         }
         findViewById<TextView>(R.id.iso_element_numb_btn).setOnClickListener {
             val isoPreference = IsoPreferences(this)
@@ -153,6 +189,7 @@ class IsotopesActivityExperimental : BaseActivity(), IsotopeAdapter.OnElementCli
             mAdapter.filterList(filtList)
             mAdapter.notifyDataSetChanged()
             recyclerView.adapter = IsotopeAdapter(filtList, this, this)
+            setBackInterceptionEnabled(anyOverlayOpen())
         }
     }
 
@@ -164,6 +201,9 @@ class IsotopesActivityExperimental : BaseActivity(), IsotopeAdapter.OnElementCli
             findViewById<EditText>(R.id.edit_iso).requestFocus()
             val imm: InputMethodManager = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
             imm.showSoftInput(findViewById<EditText>(R.id.edit_iso), InputMethodManager.SHOW_IMPLICIT)
+
+            // Search bar shown -> enable back interception
+            setBackInterceptionEnabled(true)
         }
         findViewById<ImageButton>(R.id.close_iso_search).setOnClickListener {
             Utils.fadeOutAnim(findViewById<FrameLayout>(R.id.search_bar_iso), 300)
@@ -174,6 +214,9 @@ class IsotopesActivityExperimental : BaseActivity(), IsotopeAdapter.OnElementCli
                 val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
                 imm.hideSoftInputFromWindow(view.windowToken, 0)
             }
+
+            // closed -> update interception state
+            setBackInterceptionEnabled(anyOverlayOpen())
         }
     }
 
@@ -214,6 +257,9 @@ class IsotopesActivityExperimental : BaseActivity(), IsotopeAdapter.OnElementCli
         Utils.fadeInAnimBack(findViewById<TextView>(R.id.background_i2), 300)
         Utils.fadeInAnim(findViewById<FrameLayout>(R.id.slid_panel), 300)
         findViewById<SlidingUpPanelLayout>(R.id.sliding_layout_i).panelState = SlidingUpPanelLayout.PanelState.EXPANDED
+
+        // Panel expanded -> enable back interception
+        setBackInterceptionEnabled(true)
     }
 
     private fun sentIsotope() {
@@ -224,20 +270,15 @@ class IsotopesActivityExperimental : BaseActivity(), IsotopeAdapter.OnElementCli
             Utils.fadeInAnim(findViewById<FrameLayout>(R.id.slid_panel), 300)
             findViewById<SlidingUpPanelLayout>(R.id.sliding_layout_i).panelState = SlidingUpPanelLayout.PanelState.EXPANDED
             isoSent.setValue("false")
+
+            // Panel expanded -> enable back interception
+            setBackInterceptionEnabled(true)
         }
     }
 
     override fun onBackPressed() {
-        if (findViewById<TextView>(R.id.background_i2).visibility == View.VISIBLE) {
-            findViewById<SlidingUpPanelLayout>(R.id.sliding_layout_i).panelState = SlidingUpPanelLayout.PanelState.COLLAPSED
-            return
-        }
-        if (findViewById<TextView>(R.id.filter_background).visibility == View.VISIBLE) {
-            Utils.fadeOutAnim(findViewById<TextView>(R.id.filter_background), 150)
-            Utils.fadeOutAnim(findViewById<ConstraintLayout>(R.id.iso_filter_box), 150)
-            return
-        }
-        else {
+        // Legacy/explicit back - prefer our centralized handler
+        if (!handleBackPress()) {
             super.onBackPressed()
         }
     }
@@ -325,7 +366,123 @@ class IsotopesActivityExperimental : BaseActivity(), IsotopeAdapter.OnElementCli
         searchEmptyImgPrm.topMargin = top + (resources.getDimensionPixelSize(R.dimen.title_bar))
         findViewById<LinearLayout>(R.id.empty_search_box_iso).layoutParams = searchEmptyImgPrm
     }
+
+    // Basic handler for in-activity overlays
+    private fun anyOverlayOpen(): Boolean {
+        val panelExpanded = findViewById<SlidingUpPanelLayout>(R.id.sliding_layout_i).panelState == SlidingUpPanelLayout.PanelState.EXPANDED
+        val backgroundVisible = findViewById<TextView>(R.id.background_i2).visibility == View.VISIBLE
+        val filterVisible = findViewById<TextView>(R.id.filter_background).visibility == View.VISIBLE
+        val searchBarVisible = findViewById<FrameLayout>(R.id.search_bar_iso).visibility == View.VISIBLE
+        val panelInfoVisible = findViewById<ConstraintLayout>(R.id.panel_info).visibility == View.VISIBLE
+        return panelExpanded || backgroundVisible || filterVisible || searchBarVisible || panelInfoVisible
+    }
+
+    // Close overlays if visible; return true when consumed.
+    private fun handleBackPress(): Boolean {
+        val slidingLayout = findViewById<SlidingUpPanelLayout>(R.id.sliding_layout_i)
+        val background = findViewById<TextView>(R.id.background_i2)
+        val filterBackground = findViewById<TextView>(R.id.filter_background)
+        val searchBar = findViewById<FrameLayout>(R.id.search_bar_iso)
+        val panelInfo = findViewById<ConstraintLayout>(R.id.panel_info)
+
+        // If panel info is visible, hide it
+        if (panelInfo.visibility == View.VISIBLE) {
+            Utils.fadeOutAnim(panelInfo, 300)
+            Utils.fadeOutAnim(background, 300)
+            setBackInterceptionEnabled(anyOverlayOpen())
+            return true
+        }
+
+        // If sliding panel expanded, collapse
+        if (slidingLayout.panelState == SlidingUpPanelLayout.PanelState.EXPANDED) {
+            slidingLayout.panelState = SlidingUpPanelLayout.PanelState.COLLAPSED
+            Utils.fadeOutAnim(background, 300)
+            Utils.fadeOutAnim(findViewById<FrameLayout>(R.id.slid_panel), 300)
+            setBackInterceptionEnabled(anyOverlayOpen())
+            return true
+        }
+
+        // If filter overlay visible, hide it
+        if (filterBackground.visibility == View.VISIBLE) {
+            Utils.fadeOutAnim(findViewById<ConstraintLayout>(R.id.iso_filter_box), 150)
+            Utils.fadeOutAnim(filterBackground, 150)
+            setBackInterceptionEnabled(anyOverlayOpen())
+            return true
+        }
+
+        // If search bar visible, close it
+        if (searchBar.visibility == View.VISIBLE) {
+            Utils.fadeOutAnim(searchBar, 300)
+            Utils.fadeInAnim(findViewById<FrameLayout>(R.id.title_box), 300)
+            val view = this.currentFocus
+            if (view != null) {
+                val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                imm.hideSoftInputFromWindow(view.windowToken, 0)
+            }
+            setBackInterceptionEnabled(anyOverlayOpen())
+            return true
+        }
+
+        return false
+    }
+
+    /**
+     * Centralized management of platform back interception for Android 14+.
+     * We forward platform back invocations to the OnBackPressedDispatcher to ensure
+     * gestures and hardware back buttons call the same callbacks.
+     */
+    private fun setBackInterceptionEnabled(enabled: Boolean) {
+        // Keep OnBackPressedCallback state in sync
+        backCallback?.isEnabled = enabled
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            if (enabled) {
+                if (onBackInvokedCb == null) {
+                    onBackInvokedCb = android.window.OnBackInvokedCallback {
+                        uiHandler.post {
+                            try {
+                                onBackPressedDispatcher.onBackPressed()
+                            } catch (e: Exception) {
+                                val consumed = handleBackPress()
+                                if (!consumed) {
+                                    // fallback to finishing
+                                    finish()
+                                }
+                            }
+                        }
+                    }
+                    try {
+                        onBackInvokedDispatcher.registerOnBackInvokedCallback(
+                            android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT,
+                            onBackInvokedCb!!
+                        )
+                    } catch (_: Exception) {
+                        // ignore registration errors on some devices
+                    }
+                }
+            } else {
+                if (onBackInvokedCb != null) {
+                    try {
+                        onBackInvokedDispatcher.unregisterOnBackInvokedCallback(onBackInvokedCb!!)
+                    } catch (_: Exception) {
+                        // ignore
+                    }
+                    onBackInvokedCb = null
+                }
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // Cleanup back interception hooks
+        backCallback?.remove()
+        backCallback = null
+        if (onBackInvokedCb != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            try {
+                onBackInvokedDispatcher.unregisterOnBackInvokedCallback(onBackInvokedCb!!)
+            } catch (_: Exception) { }
+            onBackInvokedCb = null
+        }
+    }
 }
-
-
-

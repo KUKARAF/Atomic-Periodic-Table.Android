@@ -27,6 +27,7 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.jlindemann.science.R
 import com.jlindemann.science.activities.BaseActivity
 import com.jlindemann.science.activities.IsotopesActivityExperimental
+import com.jlindemann.science.activities.settings.ProActivity
 import com.jlindemann.science.model.Achievement
 import com.jlindemann.science.model.AchievementModel
 import com.jlindemann.science.model.Statistics
@@ -114,9 +115,9 @@ abstract class InfoExtension : BaseActivity(), View.OnApplyWindowInsetsListener 
                 }
 
                 // Previous/next button visibility
-                findViewById<FloatingActionButton>(R.id.previous_btn).visibility =
+                findViewById<ImageButton>(R.id.previous_btn).visibility =
                     if (elementKey == "hydrogen") View.GONE else View.VISIBLE
-                findViewById<FloatingActionButton>(R.id.next_btn).visibility =
+                findViewById<ImageButton>(R.id.next_btn).visibility =
                     if (elementKey == "oganesson") View.GONE else View.VISIBLE
 
                 updateElementUI(jsonObject)
@@ -310,13 +311,52 @@ abstract class InfoExtension : BaseActivity(), View.OnApplyWindowInsetsListener 
             findViewById<TextView>(R.id.mohs_hardness_text).text = mohsHardness
             findViewById<TextView>(R.id.vickers_hardness_text).text = vickersHardness
             findViewById<TextView>(R.id.brinell_hardness_text).text = brinellHardness
+
+            findViewById<TextView>(R.id.speed_sound_solid_text).visibility =
+                if (soundOfSpeedSolid == "---") View.GONE else View.VISIBLE
+            findViewById<TextView>(R.id.speed_sound_gas_text).visibility =
+                if (soundOfSpeedGas == "---") View.GONE else View.VISIBLE
+            findViewById<TextView>(R.id.speed_sound_liquid_text).visibility =
+                if (soundOfSpeedLiquid == "---") View.GONE else View.VISIBLE
+        } else {
+            // Set the "get pro" text
+            findViewById<TextView>(R.id.speed_sound_solid_text).text = getString(R.string.get_pro_element_text)
+            findViewById<TextView>(R.id.speed_sound_gas_text).visibility = View.GONE
+            findViewById<TextView>(R.id.speed_sound_liquid_text).visibility = View.GONE
+            findViewById<TextView>(R.id.poisson_text).text = getString(R.string.get_pro_element_text)
+            findViewById<TextView>(R.id.bulk_modulus_text).text = getString(R.string.get_pro_element_text)
+            findViewById<TextView>(R.id.young_modulus_text).text = getString(R.string.get_pro_element_text)
+            findViewById<TextView>(R.id.shear_modulus_text).text = getString(R.string.get_pro_element_text)
+            findViewById<TextView>(R.id.mohs_hardness_text).text = getString(R.string.get_pro_element_text)
+            findViewById<TextView>(R.id.vickers_hardness_text).text = getString(R.string.get_pro_element_text)
+            findViewById<TextView>(R.id.brinell_hardness_text).text = getString(R.string.get_pro_element_text)
+
+            // Make the "get pro" TextViews clickable and open ProActivity when clicked.
+            // Collect the IDs that show "get pro" text in the else branch.
+            val proClickableIds = listOf(
+                R.id.speed_sound_solid_text,
+                R.id.poisson_text,
+                R.id.bulk_modulus_text,
+                R.id.young_modulus_text,
+                R.id.shear_modulus_text,
+                R.id.mohs_hardness_text,
+                R.id.vickers_hardness_text,
+                R.id.brinell_hardness_text
+            )
+
+            for (id in proClickableIds) {
+                findViewById<TextView>(id).apply {
+                    isClickable = true
+                    isFocusable = true
+                    setOnClickListener {
+                        // Use the Activity context explicitly to create the Intent
+                        val intent = Intent(this@InfoExtension, ProActivity::class.java)
+                        this@InfoExtension.startActivity(intent)
+                    }
+                }
+            }
         }
-        findViewById<TextView>(R.id.speed_sound_solid_text).visibility =
-            if (soundOfSpeedSolid == "---") View.GONE else View.VISIBLE
-        findViewById<TextView>(R.id.speed_sound_gas_text).visibility =
-            if (soundOfSpeedGas == "---") View.GONE else View.VISIBLE
-        findViewById<TextView>(R.id.speed_sound_liquid_text).visibility =
-            if (soundOfSpeedLiquid == "---") View.GONE else View.VISIBLE
+
 
         // Shell View items
         findViewById<TextView>(R.id.config_data).text = elementShellElectrons
@@ -530,6 +570,42 @@ abstract class InfoExtension : BaseActivity(), View.OnApplyWindowInsetsListener 
                 "", "---" -> {
                     findViewById<TextView>(R.id.specific_hazard_text).text = "---"
                     findViewById<TextView>(R.id.specific_hazard_txt).text = "-"
+                }
+            }
+        }
+        else {
+            // Set the "get pro" text
+            findViewById<TextView>(R.id.fire_hazard_text).text = getString(R.string.get_pro_element_text)
+            findViewById<TextView>(R.id.health_hazard_text).text = getString(R.string.get_pro_element_text)
+            findViewById<TextView>(R.id.reactivity_hazard_text).text = getString(R.string.get_pro_element_text)
+            findViewById<TextView>(R.id.specific_hazard_text).text = getString(R.string.get_pro_element_text)
+            findViewById<TextView>(R.id.fire_hazard_txt).text = getString(R.string.get_pro_short)
+            findViewById<TextView>(R.id.health_hazard_txt).text = getString(R.string.get_pro_short)
+            findViewById<TextView>(R.id.reactivity_hazard_txt).text = getString(R.string.get_pro_short)
+            findViewById<TextView>(R.id.specific_hazard_txt).text = getString(R.string.get_pro_short)
+
+            // Make the "get pro" TextViews clickable and open ProActivity when clicked.
+            // Collect the IDs that show "get pro" text in the else branch.
+            val proClickableIds = listOf(
+                R.id.fire_hazard_text,
+                R.id.health_hazard_text,
+                R.id.reactivity_hazard_text,
+                R.id.specific_hazard_text,
+                R.id.fire_hazard_txt,
+                R.id.health_hazard_txt,
+                R.id.reactivity_hazard_txt,
+                R.id.specific_hazard_txt
+            )
+
+            for (id in proClickableIds) {
+                findViewById<TextView>(id).apply {
+                    isClickable = true
+                    isFocusable = true
+                    setOnClickListener {
+                        // Use the Activity context explicitly to create the Intent
+                        val intent = Intent(this@InfoExtension, ProActivity::class.java)
+                        this@InfoExtension.startActivity(intent)
+                    }
                 }
             }
         }

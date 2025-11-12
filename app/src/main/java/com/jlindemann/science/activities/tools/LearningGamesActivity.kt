@@ -4,20 +4,26 @@ import GameResultItem
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
+import android.app.AlertDialog
 import android.content.Intent
+import android.content.res.Configuration
 import android.graphics.Color
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.View
 import android.view.ViewGroup
 import android.widget.*
+import androidx.activity.OnBackPressedCallback
 import com.jlindemann.science.R
 import com.jlindemann.science.activities.BaseActivity
+import com.jlindemann.science.activities.tools.FlashCardActivity
 import com.jlindemann.science.model.Achievement
 import com.jlindemann.science.model.AchievementModel
 import com.jlindemann.science.util.LivesManager
 import com.jlindemann.science.util.XpManager
+import com.jlindemann.science.utils.StreakManager
 import com.jlindemann.science.views.AnimatedEffectView
 import org.json.JSONArray
 import kotlin.math.roundToInt
@@ -41,6 +47,10 @@ class LearningGamesActivity : BaseActivity() {
 
     // Results tracking
     private val gameResults = mutableListOf<GameResultItem>()
+
+    // Lifecycle-aware back callback and optional platform back-invoked callback
+    private var backCallback: OnBackPressedCallback? = null
+    private var onBackInvokedCb: android.window.OnBackInvokedCallback? = null
 
     data class Question(
         val question: String,
@@ -77,12 +87,31 @@ class LearningGamesActivity : BaseActivity() {
         }
 
         questions = generateQuestions(category, totalQuestions)
+        if (questions.isEmpty()) {
+
+            return
+        }
+
         setupQuestionUI()
         updateLivesCount()
         setupAnswerListeners()
         setupBackButton()
 
-        // Setup background effect view
+        // Register lifecycle-aware OnBackPressedCallback.
+        backCallback = object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                val consumed = handleBackPress()
+                if (!consumed) {
+                    showExitConfirmationDialog()
+                } else {
+                    backCallback?.isEnabled = anyOverlayOpen() || !hasLeftGame
+                }
+            }
+        }
+        onBackPressedDispatcher.addCallback(this, backCallback!!)
+
+        setBackInterceptionEnabled(true)
+
         val effectOverlay = findViewById<FrameLayout>(R.id.effect_overlay)
         animatedEffectView = AnimatedEffectView(this)
         effectOverlay.addView(
@@ -103,10 +132,15 @@ class LearningGamesActivity : BaseActivity() {
         )
         answerCards.forEachIndexed { index, card ->
             card.setOnClickListener {
-                if (isAnswering && !hasLeftGame && index < questions[currentQuestionIndex].alternatives.size) {
+                if (!this::questions.isInitialized || questions.isEmpty()) return@setOnClickListener
+                if (currentQuestionIndex >= questions.size) return@setOnClickListener
+                val q = questions[currentQuestionIndex]
+                if (index >= q.alternatives.size) return@setOnClickListener
+
+                if (isAnswering && !hasLeftGame) {
                     isAnswering = false
                     timerAnimator?.cancel()
-                    val selectedAnswer = questions[currentQuestionIndex].alternatives[index]
+                    val selectedAnswer = q.alternatives[index]
                     checkAnswer(selectedAnswer)
                 }
             }
@@ -126,19 +160,31 @@ class LearningGamesActivity : BaseActivity() {
     private fun showExitConfirmationDialog() {
         if (leaveDialogShowing || hasLeftGame) return
         leaveDialogShowing = true
-        android.app.AlertDialog.Builder(this)
+
+        setBackInterceptionEnabled(true)
+
+        val dialog = AlertDialog.Builder(this)
             .setTitle("Leave Game?")
             .setMessage("Are you sure you want to leave the game? You will lose 5 lives.")
             .setPositiveButton("Leave") { _, _ ->
                 leaveDialogShowing = false
+                setBackInterceptionEnabled(anyOverlayOpen() || !hasLeftGame)
                 leaveGameAndLoseLives()
             }
-            .setNegativeButton("Stay") { dialog, _ ->
+            .setNegativeButton("Stay") { dialogInterface, _ ->
                 leaveDialogShowing = false
-                dialog.dismiss()
+                dialogInterface.dismiss()
+                setBackInterceptionEnabled(anyOverlayOpen() || !hasLeftGame)
             }
             .setCancelable(false)
-            .show()
+            .create()
+
+        dialog.setOnDismissListener {
+            leaveDialogShowing = false
+            setBackInterceptionEnabled(anyOverlayOpen() || !hasLeftGame)
+        }
+
+        dialog.show()
     }
 
     private fun leaveGameAndLoseLives() {
@@ -172,7 +218,6 @@ class LearningGamesActivity : BaseActivity() {
         val questionNumber = findViewById<TextView>(R.id.tv_question_number)
         val grid = findViewById<GridLayout>(R.id.grid_answers)
 
-        // Update question number display
         questionNumber.text = "${currentQuestionIndex + 1}/${questions.size}"
 
         progressBar.visibility = View.VISIBLE
@@ -190,7 +235,7 @@ class LearningGamesActivity : BaseActivity() {
                 progressBar.progress = va.animatedValue as Int
             }
             addListener(object : AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: Animator) {
+                override fun onAnimationEnd(animation: android.animation.Animator) {
                     if (isAnswering && !hasLeftGame) {
                         isAnswering = false
                         checkAnswer("__TIMEOUT__")
@@ -206,7 +251,6 @@ class LearningGamesActivity : BaseActivity() {
             findViewById<TextView>(answerIds[i]).text = alt
         }
 
-        // Handle radioactive case: only two options, hide 3 and 4
         if (category == "radioactive") {
             findViewById<LinearLayout>(R.id.answer_3).visibility = View.GONE
             findViewById<LinearLayout>(R.id.answer_4).visibility = View.GONE
@@ -220,7 +264,6 @@ class LearningGamesActivity : BaseActivity() {
             findViewById<LinearLayout>(R.id.answer_3).visibility = View.VISIBLE
             findViewById<LinearLayout>(R.id.answer_4).visibility = View.VISIBLE
         }
-
 
         grid.animate().alpha(1f).setDuration(300).start()
         progressBar.animate().alpha(1f).setDuration(300).start()
@@ -265,10 +308,18 @@ class LearningGamesActivity : BaseActivity() {
         "crystal_structure" -> 40
         "superconducting_point" -> 50
         "neutron_cross_sectional" -> 50
-        "specific heat capacity" -> 50
+        "specific_heat_capacity" -> 50
         "mohs_hardness" -> 60
         "vickers_hardness" -> 60
         "brinell_hardness" -> 60
+        "element_boiling_kelvin" -> 80
+        "element_boiling_celsius" -> 80
+        "element_boiling_fahrenheit" -> 80
+        "element_melting_kelvin" -> 80
+        "element_melting_celsius" -> 80
+        "element_melting_fahrenheit" -> 80
+        "earth_crust" -> 120
+        "earth_soils" -> 120
         else -> 5
     }
 
@@ -320,12 +371,13 @@ class LearningGamesActivity : BaseActivity() {
                 }
             }
 
-            val xpGained = if (selectedAnswer == "__TIMEOUT__" || !correct) 0 else (q.baseXp * getXpMultiplier()).roundToInt()
+            val xpGainedBase = if (selectedAnswer == "__TIMEOUT__" || !correct) 0 else (q.baseXp * getXpMultiplier()).roundToInt()
             if (selectedAnswer == "__TIMEOUT__") {
                 showResultCard(false, selectedAnswer, 0)
             } else if (correct) {
-                XpManager.addXp(this, xpGained)
-                showResultCard(true, selectedAnswer, xpGained)
+                XpManager.addGameXp(this, xpGainedBase)
+                val awardedDisplay = (xpGainedBase * XpManager.getXpBonusMultiplier(this)).roundToInt()
+                showResultCard(true, selectedAnswer, awardedDisplay)
             } else {
                 showResultCard(false, selectedAnswer, 0)
             }
@@ -388,14 +440,17 @@ class LearningGamesActivity : BaseActivity() {
         updateFlashcardAchievements(finishedGame, finishedGame && gameResults.all { it.wasCorrect })
 
         if (finishedGame) {
-            XpManager.addXp(this, xpGameWin)
+            XpManager.addGameXp(this, xpGameWin)
             if (gameResults.all { it.wasCorrect }) {
-                XpManager.addXp(this, xpPerfect)
+                XpManager.addGameXp(this, xpPerfect)
             }
             val prefs = getSharedPreferences("game_stats", MODE_PRIVATE)
             val current = prefs.getInt("completed_quizzes", 0)
             prefs.edit().putInt("completed_quizzes", current + 1).apply()
         }
+
+        // Record a play for streak tracking (this will schedule reminders when streak >= 3)
+        StreakManager.recordPlay(this)
 
         val intent = Intent(this, FlashCardActivity::class.java)
         intent.putParcelableArrayListExtra("game_results", ArrayList(gameResults))
@@ -429,13 +484,16 @@ class LearningGamesActivity : BaseActivity() {
             resultText.text = "Wrong"
             resultSubtext.text = if (livesLost == 1) "Lost 1 life" else "Lost $livesLost lives"
         }
+
+        setBackInterceptionEnabled(true)
     }
 
     private fun hideResultCard() {
         findViewById<FrameLayout>(R.id.result_card_overlay).visibility = View.GONE
+        setBackInterceptionEnabled(anyOverlayOpen() || !hasLeftGame)
     }
 
-    // Normalization function to canonicalize labels and answers
+    // Normalization function to canonicalize labels and answers (unit checks removed)
     private fun normalizeLabel(label: String): String {
         return label.trim()
             .replace("-", " ")
@@ -458,18 +516,20 @@ class LearningGamesActivity : BaseActivity() {
 
         fun wrongAnswersFor(fieldSelector: (ElementData) -> String, correct: String): List<String> =
             elements
+                .map { fieldSelector(it) }
+                .map(::normalizeLabel)
                 .filter {
-                    val v = normalizeLabel(fieldSelector(it))
+                    val v = it
                     v != normalizeLabel(correct) && v.isNotBlank() && v != "---"
                 }
-                .map { normalizeLabel(fieldSelector(it)) }
-                .filter { it.isNotBlank() && it != "---" }
                 .distinct()
                 .shuffled()
                 .take(3)
 
-        repeat(count) {
-            val element = elements.filter { it.element !in usedElements }.randomOrNull() ?: elements.random()
+        var attemptsLeft = count * 6
+        while (questions.size < count && attemptsLeft > 0) {
+            attemptsLeft--
+            val element = elements.filter { it.element !in usedElements }.randomOrNull() ?: elements.randomOrNull() ?: break
             usedElements.add(element.element)
 
             val baseXp = getBaseXp(category)
@@ -607,6 +667,54 @@ class LearningGamesActivity : BaseActivity() {
                     val wrongs = wrongAnswersFor({ it.brinell_hardness }, correct)
                     Triple(question, correct, (wrongs + correct).distinct().shuffled())
                 }
+                "element_boiling_kelvin" -> {
+                    val question = "What is the boiling point (Kelvin) of ${normalizeLabel(element.element)}?"
+                    val correct = normalizeLabel(element.boiling_kelvin)
+                    val wrongs = wrongAnswersFor({ it.boiling_kelvin }, correct)
+                    Triple(question, correct, (wrongs + correct).distinct().shuffled())
+                }
+                "element_boiling_celsius" -> {
+                    val question = "What is the boiling point (°C) of ${normalizeLabel(element.element)}?"
+                    val correct = normalizeLabel(element.boiling_celsius)
+                    val wrongs = wrongAnswersFor({ it.boiling_celsius }, correct)
+                    Triple(question, correct, (wrongs + correct).distinct().shuffled())
+                }
+                "element_boiling_fahrenheit" -> {
+                    val question = "What is the boiling point (°F) of ${normalizeLabel(element.element)}?"
+                    val correct = normalizeLabel(element.boiling_fahrenheit)
+                    val wrongs = wrongAnswersFor({ it.boiling_fahrenheit }, correct)
+                    Triple(question, correct, (wrongs + correct).distinct().shuffled())
+                }
+                "element_melting_kelvin" -> {
+                    val question = "What is the melting point (Kelvin) of ${normalizeLabel(element.element)}?"
+                    val correct = normalizeLabel(element.melting_kelvin)
+                    val wrongs = wrongAnswersFor({ it.melting_kelvin }, correct)
+                    Triple(question, correct, (wrongs + correct).distinct().shuffled())
+                }
+                "element_melting_celsius" -> {
+                    val question = "What is the melting point (°C) of ${normalizeLabel(element.element)}?"
+                    val correct = normalizeLabel(element.melting_celsius)
+                    val wrongs = wrongAnswersFor({ it.melting_celsius }, correct)
+                    Triple(question, correct, (wrongs + correct).distinct().shuffled())
+                }
+                "element_melting_fahrenheit" -> {
+                    val question = "What is the melting point (°F) of ${normalizeLabel(element.element)}?"
+                    val correct = normalizeLabel(element.melting_fahrenheit)
+                    val wrongs = wrongAnswersFor({ it.melting_fahrenheit }, correct)
+                    Triple(question, correct, (wrongs + correct).distinct().shuffled())
+                }
+                "earth_crust" -> {
+                    val question = "What is the abundance of ${normalizeLabel(element.element)} in the earths crust? mg/kg (ppm)"
+                    val correct = normalizeLabel(element.earth_crust)
+                    val wrongs = wrongAnswersFor({ it.earth_crust }, correct)
+                    Triple(question, correct, (wrongs + correct).distinct().shuffled())
+                }
+                "earth_soils" -> {
+                    val question = "What is the abundance of ${normalizeLabel(element.element)} in the earths soils? mg/kg (ppm)"
+                    val correct = normalizeLabel(element.earth_soils)
+                    val wrongs = wrongAnswersFor({ it.earth_soils }, correct)
+                    Triple(question, correct, (wrongs + correct).distinct().shuffled())
+                }
                 "mixed_questions" -> {
                     val categories = listOf(
                         "element_symbols", "element_names", "element_classifications", "discovered_by", "discovery_year",
@@ -615,8 +723,14 @@ class LearningGamesActivity : BaseActivity() {
                         "magnetic_type", "phase_stp", "crystal_structure", "superconducting_point"
                     )
                     val cat = categories.random()
-                    val mixedQ = generateQuestions(cat, 1)[0]
-                    Triple(mixedQ.question, mixedQ.correctAnswer, mixedQ.alternatives)
+                    val mixedQ = generateQuestions(cat, 1).firstOrNull()
+                    if (mixedQ != null) Triple(mixedQ.question, mixedQ.correctAnswer, mixedQ.alternatives)
+                    else {
+                        val question = "What is the symbol for ${normalizeLabel(element.element)}?"
+                        val correct = normalizeLabel(element.short)
+                        val wrongs = wrongAnswersFor({ it.short }, correct)
+                        Triple(question, correct, (wrongs + correct).distinct().shuffled())
+                    }
                 }
                 else -> {
                     val question = "What is the symbol for ${normalizeLabel(element.element)}?"
@@ -625,17 +739,16 @@ class LearningGamesActivity : BaseActivity() {
                     Triple(question, correct, (wrongs + correct).distinct().shuffled())
                 }
             }
-            // Skip question if correct answer is blank or placeholder
+
             if (correct.isBlank() || correct == "---") {
-                return@repeat
+                continue
             }
             val filteredAlternatives = alternatives
                 .map(::normalizeLabel)
                 .filter { it.isNotBlank() && it != "---" }
                 .distinct()
-            // Skip if there are not enough alternatives (at least 2)
             if (filteredAlternatives.size < 2) {
-                return@repeat
+                continue
             }
             questions.add(Question(questionText, correct, filteredAlternatives, baseXp))
         }
@@ -665,7 +778,15 @@ class LearningGamesActivity : BaseActivity() {
         val specific_heat_capacity: String,
         val mohs_hardness: String,
         val vickers_hardness: String,
-        val brinell_hardness: String
+        val brinell_hardness: String,
+        val boiling_kelvin: String,
+        val boiling_celsius: String,
+        val boiling_fahrenheit: String,
+        val melting_kelvin: String,
+        val melting_celsius: String,
+        val melting_fahrenheit: String,
+        val earth_crust: String,
+        val earth_soils: String
     )
 
     private fun loadElementsFromAsset(filename: String): List<ElementData> {
@@ -697,7 +818,15 @@ class LearningGamesActivity : BaseActivity() {
                     specific_heat_capacity = obj.optString("element_specific_heat_capacity"),
                     mohs_hardness = obj.optString("mohs_hardness"),
                     vickers_hardness = obj.optString("vickers_hardness"),
-                    brinell_hardness = obj.optString("brinell_hardness")
+                    brinell_hardness = obj.optString("brinell_hardness"),
+                    boiling_kelvin = obj.optString("element_boiling_kelvin"),
+                    boiling_celsius = obj.optString("element_boiling_celsius"),
+                    boiling_fahrenheit = obj.optString("element_boiling_fahrenheit"),
+                    melting_kelvin = obj.optString("element_boiling_kelvin"),
+                    melting_celsius = obj.optString("element_boiling_celsius"),
+                    melting_fahrenheit = obj.optString("element_boiling_fahrenheit"),
+                    earth_crust = obj.optString("earth_crust"),
+                    earth_soils = obj.optString("earth_soils")
                 )
             }
         } catch (e: Exception) {
@@ -707,7 +836,6 @@ class LearningGamesActivity : BaseActivity() {
     }
 
     override fun updateLivesCount() {
-        // MODIFIED: Show "∞" (infinity) if ProPlusVersion == 100
         val proPlusPref = com.jlindemann.science.preferences.ProPlusVersion(this)
         val isInfinite = proPlusPref.getValue() == 100
         val livesTextView = findViewById<TextView>(R.id.tv_lives_count)
@@ -731,29 +859,23 @@ class LearningGamesActivity : BaseActivity() {
     }
 
     private fun updateFlashcardAchievements(finishedGame: Boolean, allCorrect: Boolean) {
-        // Load flashcard achievements only (IDs: 101001, 101002, 101003, 101004)
         val achievementIds = listOf(101001, 101002, 101003, 101004)
         val achievements = ArrayList<Achievement>()
         AchievementModel.getList(this, achievements)
         val achMap = achievements.associateBy { it.id }
 
-        // "Perfect Game": Get all questions correct in a game (ID: 101001)
         if (allCorrect) {
             achMap[101001]?.let {
                 it.incrementProgress(this, 1)
             }
         }
 
-        // "Quiz Enthusiast": Play 10 games (ID: 101002)
-        // "Quiz Master": Play 100 games (ID: 101003)
-        // "Getting the hang of it": Play 500 games (ID: 101004)
         if (finishedGame) {
             listOf(101002, 101003, 101004).forEach { id ->
                 achMap[id]?.let { it.incrementProgress(this, 1) }
             }
         }
     }
-
 
     override fun onApplySystemInsets(top: Int, bottom: Int, left: Int, right: Int) {
         val params = findViewById<FrameLayout>(R.id.common_title_back_learn).layoutParams as ViewGroup.LayoutParams
@@ -766,7 +888,6 @@ class LearningGamesActivity : BaseActivity() {
         findViewById<TextView>(R.id.tv_question_number).layoutParams = params2
     }
 
-    // Helpers for overlay fade
     private fun fadeInEffectOverlay(effectOverlay: View, duration: Long = 300, onEnd: (() -> Unit)? = null) {
         effectOverlay.alpha = 0f
         effectOverlay.visibility = View.VISIBLE
@@ -788,7 +909,6 @@ class LearningGamesActivity : BaseActivity() {
             .start()
     }
 
-    // Helpers for fading arbitrary views
     private fun fadeOutView(view: View, duration: Long = 300, onEnd: (() -> Unit)? = null) {
         view.animate()
             .alpha(0f)
@@ -809,8 +929,98 @@ class LearningGamesActivity : BaseActivity() {
             .start()
     }
 
+    private fun anyOverlayOpen(): Boolean {
+        val resultCard = findViewById<FrameLayout?>(R.id.result_card_overlay)
+        return leaveDialogShowing || (resultCard?.visibility == View.VISIBLE)
+    }
+
+    private fun setBackInterceptionEnabled(enabled: Boolean) {
+        backCallback?.isEnabled = enabled
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            if (enabled) {
+                if (onBackInvokedCb == null) {
+                    onBackInvokedCb = android.window.OnBackInvokedCallback {
+                        handler.post {
+                            try {
+                                onBackPressedDispatcher.onBackPressed()
+                            } catch (e: Exception) {
+                                val consumed = handleBackPress()
+                                if (!consumed) showExitConfirmationDialog()
+                            }
+                        }
+                    }
+                    onBackInvokedDispatcher.registerOnBackInvokedCallback(
+                        android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT,
+                        onBackInvokedCb!!
+                    )
+                }
+            } else {
+                if (onBackInvokedCb != null) {
+                    try {
+                        onBackInvokedDispatcher.unregisterOnBackInvokedCallback(onBackInvokedCb!!)
+                    } catch (_: Exception) { }
+                    onBackInvokedCb = null
+                }
+            }
+        }
+    }
+
+    private fun handleBackPress(): Boolean {
+        val resultCard = findViewById<FrameLayout>(R.id.result_card_overlay)
+
+        if (leaveDialogShowing) {
+            leaveDialogShowing = false
+            setBackInterceptionEnabled(anyOverlayOpen() || !hasLeftGame)
+            return true
+        }
+        if (resultCard.visibility == View.VISIBLE) {
+            hideResultCard()
+            return true
+        }
+        return false
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+
+        findViewById<FrameLayout>(R.id.view_learn).systemUiVisibility =
+            View.SYSTEM_UI_FLAG_LAYOUT_STABLE or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+
+        try {
+            val effectOverlay = findViewById<FrameLayout>(R.id.effect_overlay)
+            if (this::animatedEffectView.isInitialized) {
+                effectOverlay.removeView(animatedEffectView)
+                effectOverlay.addView(
+                    animatedEffectView,
+                    FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                        FrameLayout.LayoutParams.MATCH_PARENT
+                    )
+                )
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        updateLivesCount()
+        try {
+            if (!hasLeftGame && currentQuestionIndex < questions.size) {
+                setupQuestionUI()
+            }
+        } catch (_: Exception) { }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         cleanupPending()
+        backCallback?.remove()
+        backCallback = null
+        if (onBackInvokedCb != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            try {
+                onBackInvokedDispatcher.unregisterOnBackInvokedCallback(onBackInvokedCb!!)
+            } catch (_: Exception) { }
+            onBackInvokedCb = null
+        }
     }
 }

@@ -11,6 +11,9 @@
     <dimen name="panel_margin">72dp</dimen>
     <dimen name="search_margin_side">16dp</dimen>
 
+    <dimen name="padding_small">8dp</dimen>
+    <dimen name="padding_tiny">4dp</dimen>
+
     <dimen name="zero_elevation">0dp</dimen>
     <dimen name="one_elevation">1dp</dimen>
 

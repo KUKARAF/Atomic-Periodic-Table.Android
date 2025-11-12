@@ -47,6 +47,7 @@
     <string name="pro_additional_tables_descr" >Ytterligare tabeller inklusive en nuklidtabell, poisson\'s förhållandetabell, konstanttabell, geologitabell m.m., med fler som kommer i framtiden</string>
     <string name="pro_better_calculator" >Bättre kalkylator</string>
     <string name="pro_better_calculator_descr" >En förbättrad kalkylator med möjlighet att spara molvikter för olika föreningar på favoritsidan.</string>
+    <string name="pro_additional_flashcards_descr">Tillgång till ytterligare flashcards, fler liv och synkronisering av dina framsteg</string>
     <string name="pro_additional_visualisations" >Fler visualiseringar</string>
     <string name="pro_additional_visualisations_descr" >Få tillgång till fler visualiseringar i huvudtabellen såsom Poisson\'s förhållande, bulkmodul m.m.</string>
     <string name="pro_already_purchased_title" >Har du redan köpt Atomic - Periodic Table PRO?</string>
@@ -450,4 +451,6 @@
     <string name="popup_secondary_button">Inte idag</string>
     <string name="credits_title">Attribueringar</string>
     <string name="credits_text">Attribueringar till bidragsgivare</string>
+    <string name="get_pro_element_text">Skaffa PRO-versionen för att låsa upp ytterligare information om elementen</string>
+    <string name="pro_additional_flashcards">Ytterligare flashcards och synkronisering</string>
 </resources>

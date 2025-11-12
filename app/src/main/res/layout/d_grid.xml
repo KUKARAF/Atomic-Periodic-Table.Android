@@ -10,33 +10,55 @@
         android:id="@+id/grid_properties"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_marginTop="8dp"
         android:layout_marginBottom="8dp"
         android:visibility="visible"
         android:elevation="2dp"
         android:orientation="vertical">
 
-        <TextView
+        <!-- Container with center icon -->
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="18dp"
-            android:layout_marginTop="9dp"
-            android:layout_marginEnd="18dp"
-            android:layout_marginBottom="9dp"
-            android:drawableStart="@drawable/ic_grid"
-            android:drawablePadding="9dp"
-            android:drawableTint="?attr/colorPrimary"
-            android:text="@string/grid_title"
-            android:textColor="?attr/colorPrimary"
-            android:textSize="20sp"
-            android:textStyle="bold" />
+            android:layout_marginStart="12dp"
+            android:layout_marginTop="16dp"
+            android:layout_marginEnd="12dp"
+            android:layout_marginBottom="4dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:alpha="0.75"
-            android:background="?attr/colorOnSecondaryContainer" />
-        
+            <!-- Container with center icon -->
+            <FrameLayout
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="@drawable/cookie_7"
+                android:backgroundTint="?attr/colorAccent"
+                android:layout_gravity="center_vertical"
+                android:foregroundGravity="center">
+
+                <ImageView
+                    android:id="@+id/overview_icon"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/ic_grid"
+                    android:adjustViewBounds="true"
+                    android:scaleType="centerInside"
+                    app:tint="?attr/colorOnPrimary" />
+            </FrameLayout>
+
+            <TextView
+                android:id="@+id/overview_text"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_marginStart="2dp"
+                android:layout_weight="1"
+                android:gravity="center_vertical"
+                android:text="@string/grid_title"
+                android:textColor="?attr/colorAccent"
+                android:textSize="22sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -48,14 +70,20 @@
                 android:orientation="vertical"
                 android:layout_height="wrap_content">
 
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginEnd="4dp"
+                    android:orientation="vertical"
+                    android:padding="10dp"
+                    android:background="@drawable/toast_element_list_top"
+                    android:backgroundTint="?attr/colorPrimaryDark">
+
                 <TextView
                     android:id="@+id/crystal_structure_title"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="18dp"
-                    android:layout_marginTop="8dp"
-                    android:layout_marginEnd="4dp"
-                    android:layout_marginBottom="2dp"
                     android:text="@string/crystal_structure"
                     android:textColor="?attr/colorOnSecondaryContainer"
                     android:textSize="14sp"
@@ -65,31 +93,27 @@
                     android:id="@+id/crystal_structure_text"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="18dp"
-                    android:layout_marginTop="2dp"
-                    android:layout_marginEnd="4dp"
-                    android:layout_marginBottom="8dp"
                     android:text="crystal_structure_text"
                     android:textIsSelectable="true"
                     android:textColor="?attr/colorOnSecondaryContainer"
                     android:textSize="14sp" />
+                </LinearLayout>
 
-                <TextView
+                <LinearLayout
                     android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:layout_marginStart="18dp"
-                    android:layout_marginEnd="18dp"
-                    android:alpha="0.25"
-                    android:background="?attr/colorOnSecondaryContainer" />
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginEnd="4dp"
+                    android:orientation="vertical"
+                    android:padding="10dp"
+                    android:background="@drawable/toast_element_list"
+                    android:backgroundTint="?attr/colorPrimaryDark">
 
                 <TextView
                     android:id="@+id/grid_parameters_title"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="18dp"
-                    android:layout_marginTop="8dp"
-                    android:layout_marginEnd="4dp"
-                    android:layout_marginBottom="2dp"
                     android:text="@string/grid_parameters"
                     android:textColor="?attr/colorOnSecondaryContainer"
                     android:textSize="14sp"
@@ -99,31 +123,27 @@
                     android:id="@+id/grid_parameters_text"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="18dp"
-                    android:layout_marginTop="2dp"
-                    android:layout_marginEnd="4dp"
-                    android:layout_marginBottom="8dp"
                     android:text="grid_parameters_text"
                     android:textIsSelectable="true"
                     android:textColor="?attr/colorOnSecondaryContainer"
                     android:textSize="14sp" />
+                </LinearLayout>
 
-                <TextView
+                <LinearLayout
                     android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:layout_marginStart="18dp"
-                    android:layout_marginEnd="18dp"
-                    android:alpha="0.25"
-                    android:background="?attr/colorOnSecondaryContainer" />
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginEnd="4dp"
+                    android:orientation="vertical"
+                    android:padding="10dp"
+                    android:background="@drawable/toast_element_list"
+                    android:backgroundTint="?attr/colorPrimaryDark">
 
                 <TextView
                     android:id="@+id/debye_low_title"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="18dp"
-                    android:layout_marginTop="8dp"
-                    android:layout_marginEnd="4dp"
-                    android:layout_marginBottom="2dp"
                     android:text="@string/debye_temperature_low_temperature_limit"
                     android:textColor="?attr/colorOnSecondaryContainer"
                     android:textSize="14sp"
@@ -133,31 +153,27 @@
                     android:id="@+id/debye_low_text"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="18dp"
-                    android:layout_marginTop="2dp"
-                    android:layout_marginEnd="4dp"
-                    android:layout_marginBottom="8dp"
                     android:text="debye_low_text"
                     android:textIsSelectable="true"
                     android:textColor="?attr/colorOnSecondaryContainer"
                     android:textSize="14sp" />
+                </LinearLayout>
 
-                <TextView
+                <LinearLayout
                     android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:layout_marginStart="18dp"
-                    android:layout_marginEnd="18dp"
-                    android:alpha="0.25"
-                    android:background="?attr/colorOnSecondaryContainer" />
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginEnd="4dp"
+                    android:orientation="vertical"
+                    android:padding="10dp"
+                    android:background="@drawable/toast_element_list_bottom"
+                    android:backgroundTint="?attr/colorPrimaryDark">
 
                 <TextView
                     android:id="@+id/debye_room_title"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="18dp"
-                    android:layout_marginTop="8dp"
-                    android:layout_marginEnd="4dp"
-                    android:layout_marginBottom="2dp"
                     android:text="@string/debye_temperature_room_temperature"
                     android:textColor="?attr/colorOnSecondaryContainer"
                     android:textSize="14sp"
@@ -167,21 +183,27 @@
                     android:id="@+id/debye_room_text"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="18dp"
-                    android:layout_marginTop="2dp"
-                    android:layout_marginEnd="4dp"
-                    android:layout_marginBottom="8dp"
                     android:text="@string/debye_temperature_room_temperature"
                     android:textIsSelectable="true"
                     android:textColor="?attr/colorOnSecondaryContainer"
                     android:textSize="14sp" />
-                
+                </LinearLayout>
+
             </LinearLayout>
-            <com.jlindemann.science.extensions.CrystalStructureView
-                android:id="@+id/crystal_view"
+
+            <FrameLayout
                 android:layout_width="140dp"
-                android:layout_height="140dp"
-                android:layout_gravity="center"/>
+                android:layout_height="match_parent"
+                android:layout_marginEnd="12dp"
+                android:background="@drawable/toast_element"
+                android:backgroundTint="?attr/colorPrimaryDark">
+
+                <com.jlindemann.science.extensions.CrystalStructureView
+                    android:id="@+id/crystal_view"
+                    android:layout_width="140dp"
+                    android:layout_height="140dp"
+                    android:layout_gravity="center"/>
+            </FrameLayout>
         </LinearLayout>
 
     </LinearLayout>

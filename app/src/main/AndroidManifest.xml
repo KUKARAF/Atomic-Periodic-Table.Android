@@ -3,6 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="com.android.vending.BILLING" />
 
     <application
@@ -12,7 +13,7 @@
         android:roundIcon="@mipmap/ic_launcher"
         android:supportsRtl="false"
         tools:replace="android:supportsRtl"
-        android:enableOnBackInvokedCallback="false"
+        android:enableOnBackInvokedCallback="true"
         android:theme="@style/AppTheme">
         <receiver android:name=".ShortCommandWidget">
             <meta-data
@@ -142,6 +143,7 @@
             android:name=".activities.tools.LearningGamesActivity"
             android:label="LEARNINGGAMESPAGE"
             android:exported="true"
+            android:configChanges="orientation|screenSize|keyboardHidden|screenLayout|smallestScreenSize"
             android:theme="@style/AppTheme">
             <intent-filter>
                 <action android:name="package.OtherActivity" />
