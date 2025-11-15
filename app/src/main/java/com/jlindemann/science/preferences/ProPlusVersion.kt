@@ -3,7 +3,7 @@ package com.jlindemann.science.preferences
 import android.content.Context
 import com.jlindemann.science.utils.GitHubBuildDetector
 
-class ProPlusVersion(context : Context) {
+class ProPlusVersion(private val context : Context) {
 
     val PREFERENCE_NAME = "Pro_Plus_Preference"
     val PREFERENCE_VALUE = "Pro_Plus_Value"
