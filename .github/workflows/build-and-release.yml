@@ -37,7 +37,7 @@ jobs:
       run: chmod +x gradlew
       
     - name: Build Release APK
-      run: ./gradlew assembleRelease
+      run: ./gradlew assembleRelease -Pandroid.injected.signing.store.file=$HOME/.android/debug.keystore -Pandroid.injected.signing.store.password=android -Pandroid.injected.signing.key.alias=androiddebugkey -Pandroid.injected.signing.key.password=android
       
     - name: Get version info
       id: version
