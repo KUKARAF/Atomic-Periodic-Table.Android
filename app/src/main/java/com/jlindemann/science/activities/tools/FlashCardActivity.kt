@@ -46,6 +46,7 @@ import com.jlindemann.science.preferences.ProVersion
 import com.jlindemann.science.utils.StreakManager
 import com.jlindemann.science.auth.AuthManager
 import com.jlindemann.science.sync.ProgressSyncManager
+import com.jlindemann.science.utils.GitHubBuildDetector
 import org.w3c.dom.Text
 
 class FlashCardActivity : BaseActivity() {
@@ -277,8 +278,17 @@ class FlashCardActivity : BaseActivity() {
         }
 
         //Set pro upgrade button listener
-        findViewById<TextView>(R.id.get_pro_plus_btn).setOnClickListener {
-            startActivity(Intent(this, ProActivity::class.java))
+        val getProPlusBtn = findViewById<TextView>(R.id.get_pro_plus_btn)
+        if (GitHubBuildDetector.shouldUnlockForGitHub(this)) {
+            getProPlusBtn.text = "Free for FOSS Community"
+            getProPlusBtn.setOnClickListener {
+                // Show a toast instead of opening ProActivity for GitHub builds
+                Toast.makeText(this, "All features are already unlocked for FOSS community!", Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            getProPlusBtn.setOnClickListener {
+                startActivity(Intent(this, ProActivity::class.java))
+            }
         }
 
         // Ensure UI reflects current sign-in state immediately

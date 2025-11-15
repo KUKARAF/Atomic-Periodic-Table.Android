@@ -1,6 +1,7 @@
 package com.jlindemann.science.preferences
 
 import android.content.Context
+import com.jlindemann.science.utils.GitHubBuildDetector
 
 class ProVersion(context : Context) {
 
@@ -11,6 +12,10 @@ class ProVersion(context : Context) {
 
     // DO NOT CHANGE VALUE FROM 1 BEFORE PUSHING RELEASE
     fun getValue() : Int{
+        // Auto-unlock for GitHub builds
+        if (GitHubBuildDetector.shouldUnlockForGitHub(context)) {
+            return 100 // PRO USER
+        }
         return preference.getInt (PREFERENCE_VALUE, 1) //1 == NO PRO USER, 100 == PRO USER
     }
 

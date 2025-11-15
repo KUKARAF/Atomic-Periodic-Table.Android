@@ -16,6 +16,7 @@ import com.jlindemann.science.activities.BaseActivity
 import com.jlindemann.science.preferences.ProPlusVersion
 import com.jlindemann.science.preferences.ProVersion
 import com.jlindemann.science.utils.ToastUtil
+import com.jlindemann.science.utils.GitHubBuildDetector
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -49,6 +50,14 @@ class ProActivity : BaseActivity(), BillingClientStateListener {
         if (themePrefValue == 0) setTheme(R.style.AppTheme)
         if (themePrefValue == 1) setTheme(R.style.AppThemeDark)
         setContentView(R.layout.activity_pro_v2)
+        
+        // Check if this is a GitHub build and unlock features
+        if (GitHubBuildDetector.shouldUnlockForGitHub(this)) {
+            val proPref = ProVersion(this)
+            val proPlusPref = ProPlusVersion(this)
+            proPref.setValue(100)
+            proPlusPref.setValue(100)
+        }
 
         findViewById<TextView>(R.id.pro_buy_btn).setOnClickListener {
             if (!ownsProVersion && !ownsProPlusVersion) {
@@ -284,8 +293,23 @@ class ProActivity : BaseActivity(), BillingClientStateListener {
         val proPlusPriceView = findViewById<TextView>(R.id.pro_plus_price)
         val proPref = ProVersion(this)
         val proPlusPref = ProPlusVersion(this)
+        
+        val isGitHubBuild = GitHubBuildDetector.shouldUnlockForGitHub(this)
 
-        if (ownsProVersion && !ownsProPlusVersion) {
+        if (isGitHubBuild) {
+            // GitHub build - show free for FOSS community
+            proBuyBtn.isEnabled = false
+            proBuyBtn.text = "Free for FOSS Community"
+            proPriceView.text = "🎉"
+            
+            proPlusBuyBtn.isEnabled = false
+            proPlusBuyBtn.text = "Free for FOSS Community"
+            proPlusPriceView.text = "🎉"
+            
+            // Ensure preferences are set to unlocked
+            proPref.setValue(100)
+            proPlusPref.setValue(100)
+        } else if (ownsProVersion && !ownsProPlusVersion) {
             proBuyBtn.isEnabled = false
             proBuyBtn.text = "Current Version"
             proPriceView.text = "---"
@@ -309,7 +333,9 @@ class ProActivity : BaseActivity(), BillingClientStateListener {
             proPlusPref.setValue(1)
         }
 
-        if (ownsProPlusVersion) {
+        if (isGitHubBuild) {
+            // Already handled above for GitHub builds
+        } else if (ownsProPlusVersion) {
             proPlusBuyBtn.isEnabled = false
             proPlusBuyBtn.text = "Current Version"
             proPlusPriceView.text = "---"

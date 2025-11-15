@@ -36,6 +36,7 @@ import com.jlindemann.science.preferences.*
 import com.jlindemann.science.utils.Pasteur
 import com.jlindemann.science.utils.ToastUtil
 import com.jlindemann.science.utils.Utils
+import com.jlindemann.science.utils.GitHubBuildDetector
 import com.squareup.picasso.Picasso
 import kotlinx.coroutines.*
 import org.json.JSONArray
@@ -300,6 +301,7 @@ abstract class InfoExtension : BaseActivity(), View.OnApplyWindowInsetsListener 
         // Speed of sound and hardness
         val proPref = ProVersion(this)
         val proPrefValue = proPref.getValue()
+        val isGitHubBuild = GitHubBuildDetector.shouldUnlockForGitHub(this)
         if (proPrefValue == 100) {
             findViewById<TextView>(R.id.speed_sound_solid_text).text = "Solid: $soundOfSpeedSolid"
             findViewById<TextView>(R.id.speed_sound_gas_text).text = "Gas: $soundOfSpeedGas"
@@ -319,17 +321,18 @@ abstract class InfoExtension : BaseActivity(), View.OnApplyWindowInsetsListener 
             findViewById<TextView>(R.id.speed_sound_liquid_text).visibility =
                 if (soundOfSpeedLiquid == "---") View.GONE else View.VISIBLE
         } else {
-            // Set the "get pro" text
-            findViewById<TextView>(R.id.speed_sound_solid_text).text = getString(R.string.get_pro_element_text)
+            // Set to "get pro" text or "Free for FOSS Community" for GitHub builds
+            val proText = if (isGitHubBuild) "Free for FOSS Community" else getString(R.string.get_pro_element_text)
+            findViewById<TextView>(R.id.speed_sound_solid_text).text = proText
             findViewById<TextView>(R.id.speed_sound_gas_text).visibility = View.GONE
             findViewById<TextView>(R.id.speed_sound_liquid_text).visibility = View.GONE
-            findViewById<TextView>(R.id.poisson_text).text = getString(R.string.get_pro_element_text)
-            findViewById<TextView>(R.id.bulk_modulus_text).text = getString(R.string.get_pro_element_text)
-            findViewById<TextView>(R.id.young_modulus_text).text = getString(R.string.get_pro_element_text)
-            findViewById<TextView>(R.id.shear_modulus_text).text = getString(R.string.get_pro_element_text)
-            findViewById<TextView>(R.id.mohs_hardness_text).text = getString(R.string.get_pro_element_text)
-            findViewById<TextView>(R.id.vickers_hardness_text).text = getString(R.string.get_pro_element_text)
-            findViewById<TextView>(R.id.brinell_hardness_text).text = getString(R.string.get_pro_element_text)
+            findViewById<TextView>(R.id.poisson_text).text = proText
+            findViewById<TextView>(R.id.bulk_modulus_text).text = proText
+            findViewById<TextView>(R.id.young_modulus_text).text = proText
+            findViewById<TextView>(R.id.shear_modulus_text).text = proText
+            findViewById<TextView>(R.id.mohs_hardness_text).text = proText
+            findViewById<TextView>(R.id.vickers_hardness_text).text = proText
+            findViewById<TextView>(R.id.brinell_hardness_text).text = proText
 
             // Make the "get pro" TextViews clickable and open ProActivity when clicked.
             // Collect the IDs that show "get pro" text in the else branch.
@@ -523,6 +526,7 @@ abstract class InfoExtension : BaseActivity(), View.OnApplyWindowInsetsListener 
         specificHazard: String,
         proPrefValue: Int
     ) {
+        val isGitHubBuild = GitHubBuildDetector.shouldUnlockForGitHub(this)
         if (proPrefValue == 100) {
             findViewById<TextView>(R.id.fire_hazard_txt).text = fireHazard
             findViewById<TextView>(R.id.reactivity_hazard_txt).text = reactivityHazard
@@ -574,15 +578,18 @@ abstract class InfoExtension : BaseActivity(), View.OnApplyWindowInsetsListener 
             }
         }
         else {
-            // Set the "get pro" text
-            findViewById<TextView>(R.id.fire_hazard_text).text = getString(R.string.get_pro_element_text)
-            findViewById<TextView>(R.id.health_hazard_text).text = getString(R.string.get_pro_element_text)
-            findViewById<TextView>(R.id.reactivity_hazard_text).text = getString(R.string.get_pro_element_text)
-            findViewById<TextView>(R.id.specific_hazard_text).text = getString(R.string.get_pro_element_text)
-            findViewById<TextView>(R.id.fire_hazard_txt).text = getString(R.string.get_pro_short)
-            findViewById<TextView>(R.id.health_hazard_txt).text = getString(R.string.get_pro_short)
-            findViewById<TextView>(R.id.reactivity_hazard_txt).text = getString(R.string.get_pro_short)
-            findViewById<TextView>(R.id.specific_hazard_txt).text = getString(R.string.get_pro_short)
+            // Set the "get pro" text or "Free for FOSS Community" for GitHub builds
+            val proText = if (isGitHubBuild) "Free for FOSS Community" else getString(R.string.get_pro_element_text)
+            val proShort = if (isGitHubBuild) "FOSS" else getString(R.string.get_pro_short)
+            
+            findViewById<TextView>(R.id.fire_hazard_text).text = proText
+            findViewById<TextView>(R.id.health_hazard_text).text = proText
+            findViewById<TextView>(R.id.reactivity_hazard_text).text = proText
+            findViewById<TextView>(R.id.specific_hazard_text).text = proText
+            findViewById<TextView>(R.id.fire_hazard_txt).text = proShort
+            findViewById<TextView>(R.id.health_hazard_txt).text = proShort
+            findViewById<TextView>(R.id.reactivity_hazard_txt).text = proShort
+            findViewById<TextView>(R.id.specific_hazard_txt).text = proShort
 
             // Make the "get pro" TextViews clickable and open ProActivity when clicked.
             // Collect the IDs that show "get pro" text in the else branch.
