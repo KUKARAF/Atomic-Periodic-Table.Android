@@ -278,15 +278,12 @@ class FlashCardActivity : BaseActivity() {
         }
 
         //Set pro upgrade button listener
-        val getProPlusBtn = findViewById<TextView>(R.id.get_pro_plus_btn)
-        if (GitHubBuildDetector.shouldUnlockForGitHub(this)) {
-            getProPlusBtn.text = "Free for FOSS Community"
-            getProPlusBtn.setOnClickListener {
-                // Show a toast instead of opening ProActivity for GitHub builds
-                Toast.makeText(this, "All features are already unlocked for FOSS community!", Toast.LENGTH_SHORT).show()
-            }
-        } else {
-            getProPlusBtn.setOnClickListener {
+        findViewById<TextView>(R.id.get_pro_plus_btn).setOnClickListener {
+            // Check if already has pro features
+            val isProOrProPlus = (ProVersion(this).getValue() == 100) || (ProPlusVersion(this).getValue() == 100)
+            if (isProOrProPlus) {
+                Toast.makeText(this, "All features are already unlocked!", Toast.LENGTH_SHORT).show()
+            } else {
                 startActivity(Intent(this, ProActivity::class.java))
             }
         }

@@ -50,26 +50,20 @@ class ProActivity : BaseActivity(), BillingClientStateListener {
         if (themePrefValue == 0) setTheme(R.style.AppTheme)
         if (themePrefValue == 1) setTheme(R.style.AppThemeDark)
         setContentView(R.layout.activity_pro_v2)
-        
-        // Check if this is a GitHub build and unlock features
-        if (GitHubBuildDetector.shouldUnlockForGitHub(this)) {
-            val proPref = ProVersion(this)
-            val proPlusPref = ProPlusVersion(this)
-            proPref.setValue(100)
-            proPlusPref.setValue(100)
-        }
 
         findViewById<TextView>(R.id.pro_buy_btn).setOnClickListener {
             if (!ownsProVersion && !ownsProPlusVersion) {
-                productDetailMap[PRO_VERSION_ID]?.let { launchBillingFlow(it) }
+                // Intercept billing attempt and show FOSS message
+                showFossMessageAndUnlock(PRO_VERSION_ID)
             }
         }
         findViewById<TextView>(R.id.pro_plus_buy_btn).setOnClickListener {
             if (!ownsProPlusVersion) {
+                // Intercept billing attempt and show FOSS message
                 if (ownsProVersion) {
-                    productDetailMap[PRO_PLUS_UPGRADE_ID]?.let { launchBillingFlow(it) }
+                    showFossMessageAndUnlock(PRO_PLUS_UPGRADE_ID)
                 } else {
-                    productDetailMap[PRO_PLUS_VERSION_ID]?.let { launchBillingFlow(it) }
+                    showFossMessageAndUnlock(PRO_PLUS_VERSION_ID)
                 }
             }
         }
@@ -368,6 +362,46 @@ class ProActivity : BaseActivity(), BillingClientStateListener {
             proCard?.alpha = 1.0f
             proPlusCard?.alpha = 1.0f
         }
+    }
+    
+    private fun showFossMessageAndUnlock(productId: String) {
+        // Show FOSS community message
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("FREE FOR FOSS COMMUNITY")
+            .setMessage("Thank you for supporting FOSS! All features are now unlocked for free.")
+            .setPositiveButton("🎉 Enjoy!") { dialog, _ ->
+                dialog.dismiss()
+                // Unlock features locally
+                unlockFeaturesForFoss(productId)
+            }
+            .setCancelable(false)
+            .show()
+    }
+    
+    private fun unlockFeaturesForFoss(productId: String) {
+        val proPref = ProVersion(this)
+        val proPlusPref = ProPlusVersion(this)
+        
+        when (productId) {
+            PRO_VERSION_ID -> {
+                proPref.setValue(100)
+                proPlusPref.setValue(1)
+                ownsProVersion = true
+                ownsProPlusVersion = false
+            }
+            PRO_PLUS_VERSION_ID, PRO_PLUS_UPGRADE_ID -> {
+                proPref.setValue(100)
+                proPlusPref.setValue(100)
+                ownsProVersion = true
+                ownsProPlusVersion = true
+            }
+        }
+        
+        // Update UI to reflect unlocked status
+        updateProOptionsUI()
+        updatePurchaseCardsUI()
+        
+        Toast.makeText(this, "All features unlocked! Thank you for supporting FOSS!", Toast.LENGTH_LONG).show()
     }
 
     private fun launchBillingFlow(productDetails: ProductDetails) {
